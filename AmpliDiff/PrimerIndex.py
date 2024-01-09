@@ -314,6 +314,19 @@ class PrimerIndex():
         return self.conflict_matrix[orientation][pair]
 
     @staticmethod
+    def generate_primer(primer_index, sequence, width, max_degeneracy=4**5):
+        for cur_index in range(sequence.length_raw - width + 1):
+            current_fwd_primer = sequence.sequence_raw[cur_index: cur_index + width]
+            if calculate_degeneracy(current_fwd_primer) <= max_degeneracy:
+                for forward_primer in disambiguate(current_fwd_primer):
+                    primer_index.add_sequence(sequence, cur_index, forward_primer, 'forward')
+            current_rev_primer = reverse_complement(current_fwd_primer)
+            if calculate_degeneracy(current_rev_primer) <= max_degeneracy:
+                for reverse_primer in disambiguate(current_rev_primer):
+                    primer_index.add_sequence(sequence, cur_index, reverse_primer, 'reverse')
+
+
+    @staticmethod
     def generate_index(sequences, width, comparison_matrix, max_degeneracy=4**5):
         '''
         Static function that generates a primer index for the given sequences using a primer width of $width. For the
@@ -340,26 +353,28 @@ class PrimerIndex():
         i = 0
         if type(sequences) == list: #If multiple sequences supplied
             for sequence in sequences:
-                for cur_index in range(sequence.length_raw - width + 1):
-                    current_fwd_primer = sequence.sequence_raw[cur_index : cur_index + width]
-                    if calculate_degeneracy(current_fwd_primer) <= max_degeneracy:
-                        for forward_primer in disambiguate(current_fwd_primer):
-                            primer_index.add_sequence(sequence, cur_index, forward_primer, 'forward')
-                    current_rev_primer = reverse_complement(current_fwd_primer)
-                    if calculate_degeneracy(current_rev_primer) <= max_degeneracy:
-                        for reverse_primer in disambiguate(current_rev_primer):
-                            primer_index.add_sequence(sequence, cur_index, reverse_primer, 'reverse')
+                PrimerIndex.generate_primer(primer_index, sequence, width, max_degeneracy)
+                # for cur_index in range(sequence.length_raw - width + 1):
+                #     current_fwd_primer = sequence.sequence_raw[cur_index : cur_index + width]
+                #     if calculate_degeneracy(current_fwd_primer) <= max_degeneracy:
+                #         for forward_primer in disambiguate(current_fwd_primer):
+                #             primer_index.add_sequence(sequence, cur_index, forward_primer, 'forward')
+                #     current_rev_primer = reverse_complement(current_fwd_primer)
+                #     if calculate_degeneracy(current_rev_primer) <= max_degeneracy:
+                #         for reverse_primer in disambiguate(current_rev_primer):
+                #             primer_index.add_sequence(sequence, cur_index, reverse_primer, 'reverse')
                 i += 1
         else: #If a singular sequence is supplied
-            for cur_index in range(sequences.length_raw - width + 1):
-                current_fwd_primer = sequences.sequence_raw[cur_index : cur_index + width]
-                if calculate_degeneracy(current_fwd_primer) <= max_degeneracy:
-                    for forward_primer in disambiguate(current_fwd_primer):
-                        primer_index.add_sequence(sequences, cur_index, forward_primer, 'forward')
-                current_rev_primer = reverse_complement(current_fwd_primer)
-                if calculate_degeneracy(current_rev_primer) <= max_degeneracy:
-                    for reverse_primer in disambiguate(current_rev_primer):
-                        primer_index.add_sequence(sequences, cur_index, reverse_primer, 'reverse')
+            PrimerIndex.generate_primer(primer_index, sequences, width, max_degeneracy)
+            # for cur_index in range(sequences.length_raw - width + 1):
+            #     current_fwd_primer = sequences.sequence_raw[cur_index : cur_index + width]
+            #     if calculate_degeneracy(current_fwd_primer) <= max_degeneracy:
+            #         for forward_primer in disambiguate(current_fwd_primer):
+            #             primer_index.add_sequence(sequences, cur_index, forward_primer, 'forward')
+            #     current_rev_primer = reverse_complement(current_fwd_primer)
+            #     if calculate_degeneracy(current_rev_primer) <= max_degeneracy:
+            #         for reverse_primer in disambiguate(current_rev_primer):
+            #             primer_index.add_sequence(sequences, cur_index, reverse_primer, 'reverse')
             i += 1
         return primer_index
     
