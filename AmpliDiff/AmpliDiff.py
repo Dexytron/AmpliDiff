@@ -6,7 +6,14 @@ from class_methods import generate_sequences, process_sequences, generate_amplic
 import PrimerIndex
 
 
-def main():
+def init_parser():
+    """
+    Function used to initialize the parser
+
+    Returns
+    -------
+    parser - Instance of the parser
+    """
     parser = argparse.ArgumentParser(
         description='Run AmpliDiff to find discriminatory amplicons and corresponding primers in input sequences.')
     # High level input data
@@ -71,7 +78,16 @@ def main():
                         help='Number of processing cores to use, default is 1 (no multiprocessing)')
     parser.add_argument('-sd', '--seed', type=int, default=0,
                         help='Seed that is used to determine selection of sequences if more than allowed, default is 0')
+    parser.add_argument('--inexact_matching', type=int, default=0,
+                        help='Enables AmpliDiff to allow for inexact matching between primers and amplicons. '
+                             'The input number represents the number of allowed mismatches per primer.')
 
+    return parser
+
+
+def main():
+    # Get the parser instance
+    parser = init_parser()
     # Parse arguments
     args = parser.parse_args()
     comparison_matrix = generate_comparison_matrix()
@@ -160,6 +176,8 @@ def main():
         thresholds['mfe_threshold'] = args.mfe_threshold
     if thresholds['self_complementarity_threshold'] == default_thresholds['self_complementarity_threshold']:
         thresholds['self_complementarity_threshold'] = args.self_complementarity_threshold
+
+    # Generating the PrimerIndex
     PrimerIndex.PrimerIndex.set_thresholds(thresholds)
     print('Generating primer index')
     primer_index = PrimerIndex.PrimerIndex.generate_index_mp(sequences, args.primer_width, comparison_matrix,

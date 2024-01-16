@@ -2,14 +2,15 @@ from classless_methods import calculate_degeneracy, equivalent_characters
 import amplicon_generation
 from Sequence import *
 from Amplicon import *
-#BIOCONDA
+# BIOCONDA
 from Bio import SeqIO
-#GUROBI
+# GUROBI
 import gurobipy as gp
 from gurobipy import GRB
-#Standard library
+# Standard library
 import csv
 import itertools
+
 
 def generate_sequences(sequence_file, metadata_file, min_characters=-1, max_degeneracy=-1, max_n=-1):
     '''
@@ -37,41 +38,42 @@ def generate_sequences(sequence_file, metadata_file, min_characters=-1, max_dege
         List of sequences.
 
     '''
-    sequences_temp = {} #temporarily stores sequences as identifier -> sequence
-    to_delete = [] #contains sequences that will be deleted based on QC parameters
+    sequences_temp = {}  # temporarily stores sequences as identifier -> sequence
+    to_delete = []  # contains sequences that will be deleted based on QC parameters
 
-    #Read aligned sequences
+    # Read aligned sequences
     sequences_object = SeqIO.parse(open(sequence_file), 'fasta')
     for sequence in sequences_object:
-        delete_this_seq = False #set to True when a sequence should be deleted
-        sequences_temp[sequence.id.split('|')[0]] = str(sequence.seq.lower()) #stores sequences as lowercase
-        if min_characters >= 0: #check if sequence is long enough
-            if len(sequence.seq.replace('-','')) < min_characters:
+        delete_this_seq = False  # set to True when a sequence should be deleted
+        sequences_temp[sequence.id.split('|')[0]] = str(sequence.seq.lower())  # stores sequences as lowercase
+        if min_characters >= 0:  # check if sequence is long enough
+            if len(sequence.seq.replace('-', '')) < min_characters:
                 to_delete.append(sequence.id.split('|')[0])
                 delete_this_seq = True
-        elif max_degeneracy >= 0 and not delete_this_seq: #check if sequence is too degenerate
+        elif max_degeneracy >= 0 and not delete_this_seq:  # check if sequence is too degenerate
             if calculate_degeneracy(sequence.seq.lower().replace('-')) > max_degeneracy:
                 to_delete.append(sequence.id.split('|')[0])
                 delete_this_seq = True
-        elif max_n >= 0 and not delete_this_seq: #check if sequence has too many 'n's
+        elif max_n >= 0 and not delete_this_seq:  # check if sequence has too many 'n's
             if sequence.seq.lower().count('n') > max_n:
                 to_delete.append(sequence.id.split('|')[0])
                 delete_this_seq = True
-    #Read metadata. If impossible, assign every sequence a unique lineage
-    skip = -1 #used to determine header containing lineage information
+    # Read metadata. If impossible, assign every sequence a unique lineage
+    skip = -1  # used to determine header containing lineage information
     try:
         sequences = []
-        for meta in csv.reader(open(metadata_file), delimiter = '\t'):
-            if skip == -1: #first line is the header
+        for meta in csv.reader(open(metadata_file), delimiter='\t'):
+            if skip == -1:  # first line is the header
                 for cur_meta in range(len(meta)):
                     if 'lineage' in meta[cur_meta].lower():
-                        skip = cur_meta #find line containing lineage information
+                        skip = cur_meta  # find line containing lineage information
                         break
-            else: #line is not a header
-                if meta[0] not in to_delete: #first column should contain sequence ids
+            else:  # line is not a header
+                if meta[0] not in to_delete:  # first column should contain sequence ids
                     sequences.append(Sequence(sequences_temp[meta[0].replace(' ', '')], meta[0], lineage=meta[skip]))
     except:
-        print('Unable to read metadata from file either due to non-existing file or incorrect sequence ids, will assign unique lineages')
+        print(
+            'Unable to read metadata from file either due to non-existing file or incorrect sequence ids, will assign unique lineages')
         sequences = []
         i = 0
         for identifier in sequences_temp:
@@ -79,6 +81,7 @@ def generate_sequences(sequence_file, metadata_file, min_characters=-1, max_dege
             i += 1
 
     return sequences
+
 
 def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign=-1):
     '''
@@ -112,11 +115,10 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         Numpy array with the indices of nucleotides that are potentially different between pairs of sequences
 
     '''
-    #Assert that every sequence has the same length
+    # Assert that every sequence has the same length
     for sequence in sequences[1:]:
         if sequence.length != sequences[0].length:
             raise ValueError("Sequences have varying lengths, only multiple aligned sequences can be preprocessed!")
-
 
     def find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign):
         '''
@@ -144,38 +146,39 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         feasible_amplicons = set()
         misalign_indices = []
 
-        #Determine indices of misalignment characters in initial amplicon minus the final position
-        for i in range(lb, lb+amplicon_width-1):
+        # Determine indices of misalignment characters in initial amplicon minus the final position
+        for i in range(lb, lb + amplicon_width - 1):
             if sequence.sequence[i] == '-':
                 misalign_indices.append(i)
-        #Iterate over amplicons between lb and ub
-        for i in range(lb+amplicon_width-1, ub):
-            if sequence.sequence[i] == '-': # check if next character is misalign character
+        # Iterate over amplicons between lb and ub
+        for i in range(lb + amplicon_width - 1, ub):
+            if sequence.sequence[i] == '-':  # check if next character is misalign character
                 misalign_indices.append(i)
-            if len(misalign_indices) <= max_misalign: # check if current amplicon has too many misalign characters
-                feasible_amplicons.add((i-amplicon_width+1, i+1))
-            try: # check if the first index in misalign_indices should be removed
+            if len(misalign_indices) <= max_misalign:  # check if current amplicon has too many misalign characters
+                feasible_amplicons.add((i - amplicon_width + 1, i + 1))
+            try:  # check if the first index in misalign_indices should be removed
                 if misalign_indices[0] == i - amplicon_width + 1:
                     misalign_indices.pop(0)
             except:
                 continue
         return feasible_amplicons
-    
+
     feasible_amplicons = set()
     lb = 0
     ub = sequences[0].length
 
-    #Determine feasible amplicons and positions where sequences potentially differ
-    sequence_index = 0 #sequence index
-    options_table = [set(['a','c','g','t','-']) for _ in range(sequences[0].length)] #set with nucleotides at every position
+    # Determine feasible amplicons and positions where sequences potentially differ
+    sequence_index = 0  # sequence index
+    options_table = [set(['a', 'c', 'g', 't', '-']) for _ in
+                     range(sequences[0].length)]  # set with nucleotides at every position
 
     for sequence in sequences:
         sequence.align_to_trim()
         (cur_lb, cur_ub) = sequence.find_bounds(min_non_align)
-        lb = max(lb, cur_lb) #update lowerbound
-        ub = min(ub, cur_ub) #update upperbound
+        lb = max(lb, cur_lb)  # update lowerbound
+        ub = min(ub, cur_ub)  # update upperbound
 
-        #Check nucleotides:
+        # Check nucleotides:
         #   By taking intersections at every position we find a set that is either empty (i.e. nucleotide is not identical for all sequences),
         #   or contains some characters which are shared by all sequences. In the former case we know that this position can possibly be used
         #   to differentiate, but in the latter case all sequences share at least one nucleotide at the position which means that it can't be
@@ -183,15 +186,16 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         for c in range(sequence.length):
             options_table[c] = options_table[c].intersection(equivalent_characters(sequence.sequence[c]))
 
-        #If amplicon width and misalign_threshold are specified, find feasible amplicons
+        # If amplicon width and misalign_threshold are specified, find feasible amplicons
         if amplicon_width > 0 and max_misalign >= 0:
             if sequence_index == 0:
                 feasible_amplicons = find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign)
             else:
-                feasible_amplicons = feasible_amplicons.intersection(find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign))
+                feasible_amplicons = feasible_amplicons.intersection(
+                    find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign))
         sequence_index += 1
 
-    #Generate array with ones for positions that should be considered
+    # Generate array with ones for positions that should be considered
     relevant_nucleotides = np.zeros((sequences[0].length), dtype=np.int32)
     for amplicon in feasible_amplicons:
         for index in range(amplicon[0], amplicon[1]):
@@ -200,6 +204,7 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
     relevant_nucleotides = np.where(relevant_nucleotides == 1)[0]
 
     return sequences, lb, ub, feasible_amplicons, relevant_nucleotides
+
 
 def translate_to_numeric(sequences, amplicons, relevant_nucleotides, comparison_matrix):
     '''
@@ -229,24 +234,24 @@ def translate_to_numeric(sequences, amplicons, relevant_nucleotides, comparison_
         Numpy array where every entry contains 
         (starting_index, first relevant nucleotide before amplicon, first relevant nucleotide after amplicon).
     '''
-    chars = ['a','c','t','g','u','r','y','k','m','s','w','b','d','h','v','n','-']
+    chars = ['a', 'c', 't', 'g', 'u', 'r', 'y', 'k', 'm', 's', 'w', 'b', 'd', 'h', 'v', 'n', '-']
     char_comp = np.zeros((len(chars), len(chars)), dtype=np.int8)
     chars2num = {}
     seqs_num = np.zeros((len(sequences), sequences[0].length), dtype=np.int8)
     AMPS = np.zeros((len(amplicons), 3), dtype=np.int32)
-    
+
     for char_index in range(len(chars)):
         chars2num[chars[char_index]] = char_index
-        
+
     for c1 in range(len(chars)):
         for c2 in range(len(chars)):
             if not comparison_matrix[(chars[c1], chars[c2])][0]:
                 char_comp[c1][c2] = 1
-                
+
     for s in range(len(sequences)):
         for i in range(sequences[s].length):
             seqs_num[s][i] = chars2num[sequences[s].sequence[i]]
-            
+
     for a in range(len(amplicons)):
         AMPS[a][0] = amplicons[a][0]
         cur = np.where(relevant_nucleotides < amplicons[a][0])[0]
@@ -255,11 +260,12 @@ def translate_to_numeric(sequences, amplicons, relevant_nucleotides, comparison_
         cur = np.where(relevant_nucleotides < amplicons[a][1])[0]
         if cur.shape[0] > 0:
             AMPS[a][2] = cur[-1]
-                
+
     return chars2num, char_comp, seqs_num, AMPS
 
-def generate_amplicons(sequences, amplicon_width, comparison_matrix, lb=None, 
-                        ub=None, max_mismatch=1, feasible_amplicons=set(), relevant_nucleotides=None):
+
+def generate_amplicons(sequences, amplicon_width, comparison_matrix, lb=None,
+                       ub=None, max_mismatch=1, feasible_amplicons=set(), relevant_nucleotides=None):
     '''
     Function that determines which sequence pairs can be differentiated for every 
     amplicon in either $feasible_amplicons or in all possible amplicons.
@@ -295,42 +301,45 @@ def generate_amplicons(sequences, amplicon_width, comparison_matrix, lb=None,
         where X[k,i,j] = 1 iff sequence i and j can be differentiated according to amplicon k.
 
     '''
-    #Assert that every sequence has the same length
+    # Assert that every sequence has the same length
     for sequence in sequences[1:]:
         if sequence.length != sequences[0].length:
             raise ValueError("Sequences have varying lengths, only multiple aligned sequences can be preprocessed!")
-    #Assert that amplicons do not exceed sequence lengths and have equal length
+    # Assert that amplicons do not exceed sequence lengths and have equal length
     if len(feasible_amplicons) > 0:
         for amplicon in feasible_amplicons:
             if amplicon[0] < 0 or amplicon[1] > sequences[0].length:
-                raise ValueError("Invalid amplicons provided, please make sure that amplicons are defined within the length of sequences")
+                raise ValueError(
+                    "Invalid amplicons provided, please make sure that amplicons are defined within the length of sequences")
             if amplicon[1] - amplicon[0] != amplicon_width:
-                raise ValueError("Unequal amplicon lengths found, please make sure that provided amplicons have identical lengths")
+                raise ValueError(
+                    "Unequal amplicon lengths found, please make sure that provided amplicons have identical lengths")
 
     if not lb:
         lb = 0
     else:
         lb = max(lb, 0)
     if not ub:
-        ub = sequences[0].length         
+        ub = sequences[0].length
     else:
         ub = min(ub, sequences[0].length)
 
-    #Check if feasible amplicons are provided
+    # Check if feasible amplicons are provided
     if len(feasible_amplicons) > 0:
         amplicons = list(feasible_amplicons)
-        amplicons.sort(key = lambda x : x[0]) # sort amplicons based on starting index (descending)
+        amplicons.sort(key=lambda x: x[0])  # sort amplicons based on starting index (descending)
     else:
-        amplicons = [(i, i+amplicon_width) for i in range(lb, ub-lb-amplicon_width+1)]
+        amplicons = [(i, i + amplicon_width) for i in range(lb, ub - lb - amplicon_width + 1)]
 
-    #Transform input to numeric representation
+    # Transform input to numeric representation
     print('Transforming input sequences to numeric representations')
     lineages_list = [sequence.lineage_num for sequence in sequences]
     ids_list = np.array([sequence.id_num for sequence in sequences], dtype=np.int32)
-    _, comparison_matrix_num, sequences_num, AMPS = translate_to_numeric(sequences, amplicons, relevant_nucleotides, comparison_matrix)
+    _, comparison_matrix_num, sequences_num, AMPS = translate_to_numeric(sequences, amplicons, relevant_nucleotides,
+                                                                         comparison_matrix)
     print('Done transforming input sequences')
 
-    #Determine pairs of sequences with different lineages
+    # Determine pairs of sequences with different lineages
     print('Determining sequence pairs with different lineages')
     sequence_pairs = []
     for seq_1 in range(len(sequences)):
@@ -342,19 +351,21 @@ def generate_amplicons(sequences, amplicon_width, comparison_matrix, lb=None,
 
     print('Calculating amplicon differentiabilities')
     X = amplicon_generation.generate_amplicons_cy(AMPS, amplicon_width, AMPS.shape[0], sequences_num,
-                                                    sequence_pairs, len(sequence_pairs), sequences_num.shape[0],
-                                                    ids_list, comparison_matrix_num, relevant_nucleotides,
-                                                    relevant_nucleotides.shape[0], max_mismatch)
+                                                  sequence_pairs, len(sequence_pairs), sequences_num.shape[0],
+                                                  ids_list, comparison_matrix_num, relevant_nucleotides,
+                                                  relevant_nucleotides.shape[0], max_mismatch)
     X = np.asarray(X, dtype=np.int8)
     print('Done calculating differentiabilities')
 
     res = []
     for amplicon_index in range(AMPS.shape[0]):
-        res.append(Amplicon(AMPS[amplicon_index][0], AMPS[amplicon_index][0]+amplicon_width))
+        res.append(Amplicon(AMPS[amplicon_index][0], AMPS[amplicon_index][0] + amplicon_width))
 
     return res, X
-    
-def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, differences, primer_index, temperature_range=5, feasibility_check=False):
+
+
+def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, differences, primer_index,
+                                                           temperature_range=5, feasibility_check=False):
     '''
     Function that solves the primer feasibility problem in the case of 100% required coverage.
 
@@ -383,75 +394,91 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
             -list with sequences for which the amplicon has binding forward AND reverse primers
 
     '''
-    #Start environment and disable output logging
+    # Start environment and disable output logging
     env = gp.Env(empty=True)
-    env.setParam('OutputFlag',0)
+    env.setParam('OutputFlag', 0)
     env.start()
 
-    #Make model and set objective to minimization
+    # Make model and set objective to minimization
     model = gp.Model(env=env)
     model.ModelSense = GRB.MINIMIZE
 
-    #Primer variables
-    forward_primers = {} #primer -> (variable, temperature)
-    reverse_primers = {} #primer -> (variable, temperature)
-    #Sequence variables
-    covered_binary = {} #sequence_id -> variable
+    # Primer variables
+    forward_primers = {}  # primer -> (variable, temperature)
+    reverse_primers = {}  # primer -> (variable, temperature)
+    # Sequence variables
+    covered_binary = {}  # sequence_id -> variable
 
-    #Initialize primer and sequence variables
+    # Selected primers positions
+    forward_primers_pos = {}
+    reverse_primers_pos = {}
+
+    # Initialize primer and sequence variables
     for sequence in amplicon.primers['forward']:
         for primer in amplicon.primers['forward'][sequence]:
-            if primer not in forward_primers:
+            # If it is not selected or if the distance is 1k between its previous positions
+            if primer not in forward_primers or False:
+                forward_primers_pos[primer] = amplicon
                 forward_primers[primer] = (model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
     for sequence in amplicon.primers['reverse']:
         for primer in amplicon.primers['reverse'][sequence]:
             if primer not in reverse_primers:
-                reverse_primers[primer] = (model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
+                reverse_primers[primer] = (
+                model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
     for sequence in sequences:
         covered_binary[sequence.id_num] = model.addVar(vtype=GRB.BINARY, obj=0)
-    
-    #If feasibility_check is True, model will not optimize, but only focus on finding a feasible solution
+
+    # If feasibility_check is True, model will not optimize, but only focus on finding a feasible solution
     if feasibility_check:
         num_primer_pairs = model.addVar(vtype=GRB.INTEGER, obj=0)
     else:
         num_primer_pairs = model.addVar(vtype=GRB.INTEGER, obj=1)
 
-    #Temperature variables
+    # Temperature variables
     max_temp = model.addVar(vtype=GRB.CONTINUOUS, obj=0)
     min_temp = model.addVar(vtype=GRB.CONTINUOUS, obj=0)
 
-    #Enforce covered_binary variables to 0 if they aren't covered
+    # Enforce covered_binary variables to 0 if they aren't covered
     for sequence in sequences:
-        model.addConstr(covered_binary[sequence.id_num] <= sum(forward_primers[primer][0] for primer in amplicon.primers['forward'][sequence.id_num]))
-        model.addConstr(covered_binary[sequence.id_num] <= sum(reverse_primers[primer][0] for primer in amplicon.primers['reverse'][sequence.id_num]))
-        #Every sequence should be covered
+        model.addConstr(covered_binary[sequence.id_num] <= sum(
+            forward_primers[primer][0] for primer in amplicon.primers['forward'][sequence.id_num]))
+        model.addConstr(covered_binary[sequence.id_num] <= sum(
+            reverse_primers[primer][0] for primer in amplicon.primers['reverse'][sequence.id_num]))
+        # Every sequence should be covered
         model.addConstr(covered_binary[sequence.id_num] >= 1)
-        #Temperature constraints
-        for primer in amplicon.full_primerset['forward']: #iterate over forward primers
-            model.addConstr( min_temp <= primer_index.index2primer['forward'][primer].temperature * (3 - 2 * forward_primers[primer][0]) )
-            model.addConstr( max_temp >= primer_index.index2primer['forward'][primer].temperature * forward_primers[primer][0] )
+        # Temperature constraints
+        for primer in amplicon.full_primerset['forward']:  # iterate over forward primers
+            model.addConstr(min_temp <= primer_index.index2primer['forward'][primer].temperature * (
+                        3 - 2 * forward_primers[primer][0]))
+            model.addConstr(
+                max_temp >= primer_index.index2primer['forward'][primer].temperature * forward_primers[primer][0])
         for primer in amplicon.full_primerset['reverse']:
-            model.addConstr( min_temp <= primer_index.index2primer['reverse'][primer].temperature * (3 - 2 * reverse_primers[primer][0]) )
-            model.addConstr( max_temp >= primer_index.index2primer['reverse'][primer].temperature * reverse_primers[primer][0] )
+            model.addConstr(min_temp <= primer_index.index2primer['reverse'][primer].temperature * (
+                        3 - 2 * reverse_primers[primer][0]))
+            model.addConstr(
+                max_temp >= primer_index.index2primer['reverse'][primer].temperature * reverse_primers[primer][0])
     model.addConstr(max_temp - min_temp <= temperature_range)
 
-    #Check primer conflicts
+    # Check primer conflicts
     for pair in itertools.combinations(forward_primers.keys(), 2):
-        model.addConstr( forward_primers[pair[0]][0] + forward_primers[pair[1]][0] <= primer_index.check_conflict( [primer_index.index2primer['forward'][pair[0]], primer_index.index2primer['forward'][pair[1]]] ) )
+        model.addConstr(forward_primers[pair[0]][0] + forward_primers[pair[1]][0] <= primer_index.check_conflict(
+            [primer_index.index2primer['forward'][pair[0]], primer_index.index2primer['forward'][pair[1]]]))
     for pair in itertools.combinations(reverse_primers.keys(), 2):
-        model.addConstr( reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict( [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]] ) )
+        model.addConstr(reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict(
+            [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]]))
     for fwd in forward_primers:
         for rev in reverse_primers:
-            model.addConstr( forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict( [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]] ) )
+            model.addConstr(forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict(
+                [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]]))
 
-    #Set variable for number of primer pairs
+    # Set variable for number of primer pairs
     model.addConstr(num_primer_pairs >= sum(forward_primers[primer][0] for primer in forward_primers))
     model.addConstr(num_primer_pairs >= sum(reverse_primers[primer][0] for primer in reverse_primers))
 
-    #Optimize model and if solution is optimal return outcome, otherwise report that no feasible solution exists
+    # Optimize model and if solution is optimal return outcome, otherwise report that no feasible solution exists
     model.optimize()
     if model.Status == 2:
-        res = {'forward' : [], 'reverse' : []}
+        res = {'forward': [], 'reverse': []}
         seqs_covered = 0
         print('Forward primers: ')
         for primer in forward_primers:
@@ -465,12 +492,14 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
                 res['reverse'].append(primer_index.index2primer['reverse'][primer].sequence)
         for sequence in covered_binary:
             if covered_binary[sequence].x > 0.9:
-                seqs_covered += 1/len(sequences)
+                seqs_covered += 1 / len(sequences)
         return [True, res, differences, seqs_covered]
     return [False, None, None, None]
 
-def check_primer_feasibility_single_amplicon_variable_coverage(sequences, amplicon, differences, total_differences, 
-                                                                primer_index, temperature_range=5, beta=0.05, coverage=1):
+
+def check_primer_feasibility_single_amplicon_variable_coverage(sequences, amplicon, differences, total_differences,
+                                                               primer_index, temperature_range=5, beta=0.05,
+                                                               coverage=1):
     '''
     Function that solves the primer feasibility problem in the case of <100% required coverage.
 
@@ -503,75 +532,88 @@ def check_primer_feasibility_single_amplicon_variable_coverage(sequences, amplic
             -list with sequences for which the amplicon has binding forward AND reverse primers
 
     '''
-    #Start environment and disable output logging
+    # Start environment and disable output logging
     env = gp.Env(empty=True)
-    env.setParam('OutputFlag',0)
+    env.setParam('OutputFlag', 0)
     env.start()
 
-    #Make model and set objective to maximize
+    # Make model and set objective to maximize
     model = gp.Model(env=env)
     model.ModelSense = GRB.MAXIMIZE
 
-    #Primer variables
-    forward_primers = {} #primer -> (variable, temperature)
-    reverse_primers = {} #primer -> (variable, temperature)
-    #Sequence variables
-    covered_binary = {} #sequence_id -> variable
-    covered_pairs = {} #(sequence_id, sequence_id) -> variable
+    # Primer variables
+    forward_primers = {}  # primer -> (variable, temperature)
+    reverse_primers = {}  # primer -> (variable, temperature)
+    # Sequence variables
+    covered_binary = {}  # sequence_id -> variable
+    covered_pairs = {}  # (sequence_id, sequence_id) -> variable
 
-    #Initialize primer and sequence variables
+    # Initialize primer and sequence variables
     for sequence in amplicon.primers['forward']:
         for primer in amplicon.primers['forward'][sequence]:
             if primer not in forward_primers:
-                forward_primers[primer] = (model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
+                forward_primers[primer] = (
+                model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
     for sequence in amplicon.primers['reverse']:
         for primer in amplicon.primers['reverse'][sequence]:
             if primer not in reverse_primers:
-                reverse_primers[primer] = (model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
+                reverse_primers[primer] = (
+                model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
     for sequence in sequences:
         covered_binary[sequence.id_num] = model.addVar(vtype=GRB.BINARY, obj=0)
     for s1 in range(len(sequences)):
         for s2 in range(s1):
-            if sequences[s1].lineage != sequences[s2].lineage and differences[sequences[s2].id_num, sequences[s1].id_num] == 1:
+            if sequences[s1].lineage != sequences[s2].lineage and differences[
+                sequences[s2].id_num, sequences[s1].id_num] == 1:
                 covered_pairs[(sequences[s1].id_num, sequences[s2].id_num)] = model.addVar(vtype=GRB.BINARY, obj=1)
-                model.addConstr(covered_pairs[(sequences[s1].id_num, sequences[s2].id_num)] <= 0.5*covered_binary[sequences[s1].id_num] + 0.5*covered_binary[sequences[s2].id_num])
-    num_primer_pairs = model.addVar(vtype=GRB.INTEGER, obj=-beta*total_differences)
+                model.addConstr(covered_pairs[(sequences[s1].id_num, sequences[s2].id_num)] <= 0.5 * covered_binary[
+                    sequences[s1].id_num] + 0.5 * covered_binary[sequences[s2].id_num])
+    num_primer_pairs = model.addVar(vtype=GRB.INTEGER, obj=-beta * total_differences)
 
-    #Temperature variables
+    # Temperature variables
     max_temp = model.addVar(vtype=GRB.CONTINUOUS, obj=0)
     min_temp = model.addVar(vtype=GRB.CONTINUOUS, obj=0)
 
-    #Enforce covered_binary variables to 0 if sequences aren't covered (i.e. no binding primers)
+    # Enforce covered_binary variables to 0 if sequences aren't covered (i.e. no binding primers)
     for sequence in sequences:
-        model.addConstr(covered_binary[sequence.id_num] <= sum(forward_primers[primer][0] for primer in amplicon.primers['forward'][sequence.id_num]))
-        model.addConstr(covered_binary[sequence.id_num] <= sum(reverse_primers[primer][0] for primer in amplicon.primers['reverse'][sequence.id_num]))
-        #At least $coverage (fraction) of the sequences should be covered per amplicon
+        model.addConstr(covered_binary[sequence.id_num] <= sum(
+            forward_primers[primer][0] for primer in amplicon.primers['forward'][sequence.id_num]))
+        model.addConstr(covered_binary[sequence.id_num] <= sum(
+            reverse_primers[primer][0] for primer in amplicon.primers['reverse'][sequence.id_num]))
+        # At least $coverage (fraction) of the sequences should be covered per amplicon
         model.addConstr(sum(covered_binary[sequence.id_num] for sequence in sequences) >= coverage * len(sequences))
-        #Temperature constraints
-        for primer in amplicon.full_primerset['forward']: #iterate over forward primers
-            model.addConstr( min_temp <= primer_index.index2primer['forward'][primer].temperature * (3 - 2 * forward_primers[primer][0]) )
-            model.addConstr( max_temp >= primer_index.index2primer['forward'][primer].temperature * forward_primers[primer][0] )
+        # Temperature constraints
+        for primer in amplicon.full_primerset['forward']:  # iterate over forward primers
+            model.addConstr(min_temp <= primer_index.index2primer['forward'][primer].temperature * (
+                        3 - 2 * forward_primers[primer][0]))
+            model.addConstr(
+                max_temp >= primer_index.index2primer['forward'][primer].temperature * forward_primers[primer][0])
         for primer in amplicon.full_primerset['reverse']:
-            model.addConstr( min_temp <= primer_index.index2primer['reverse'][primer].temperature * (3 - 2 * reverse_primers[primer][0]) )
-            model.addConstr( max_temp >= primer_index.index2primer['reverse'][primer].temperature * reverse_primers[primer][0] )
+            model.addConstr(min_temp <= primer_index.index2primer['reverse'][primer].temperature * (
+                        3 - 2 * reverse_primers[primer][0]))
+            model.addConstr(
+                max_temp >= primer_index.index2primer['reverse'][primer].temperature * reverse_primers[primer][0])
     model.addConstr(max_temp - min_temp <= temperature_range)
 
-    #Check primer conflicts
+    # Check primer conflicts
     for pair in itertools.combinations(forward_primers.keys(), 2):
-        model.addConstr( forward_primers[pair[0]][0] + forward_primers[pair[1]][0] <= primer_index.check_conflict( [primer_index.index2primer['forward'][pair[0]], primer_index.index2primer['forward'][pair[1]]] ) )
+        model.addConstr(forward_primers[pair[0]][0] + forward_primers[pair[1]][0] <= primer_index.check_conflict(
+            [primer_index.index2primer['forward'][pair[0]], primer_index.index2primer['forward'][pair[1]]]))
     for pair in itertools.combinations(reverse_primers.keys(), 2):
-        model.addConstr( reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict( [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]] ) )
+        model.addConstr(reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict(
+            [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]]))
     for fwd in forward_primers:
         for rev in reverse_primers:
-            model.addConstr( forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict( [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]] ) )
+            model.addConstr(forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict(
+                [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]]))
 
-    #Set variable for primer pairs
+    # Set variable for primer pairs
     model.addConstr(num_primer_pairs >= sum(forward_primers[primer][0] for primer in forward_primers))
     model.addConstr(num_primer_pairs >= sum(reverse_primers[primer][0] for primer in reverse_primers))
 
     model.optimize()
     if model.Status == 2:
-        res = {'forward' : [], 'reverse' : []}
+        res = {'forward': [], 'reverse': []}
         seqs_covered = 0
         print('Forward primers: ')
         for primer in forward_primers:
@@ -589,14 +631,15 @@ def check_primer_feasibility_single_amplicon_variable_coverage(sequences, amplic
                 realized_differences[pair[1], pair[0]] = 1
         for sequence in covered_binary:
             if covered_binary[sequence].x > 0.9:
-                seqs_covered += 1/len(sequences)
+                seqs_covered += 1 / len(sequences)
         return [True, res, realized_differences, seqs_covered]
     return [False, None, None, None]
 
-def greedy_amplicon_selection(sequences, amplicons, differences_per_amplicon, primer_width, 
-                                search_width, primer_index, comparison_matrix, max_amplicons, 
-                                coverage, temperature_range, beta=0.05, logging=False, 
-                                output_file=None):
+
+def greedy_amplicon_selection(sequences, amplicons, differences_per_amplicon, primer_width,
+                              search_width, primer_index, comparison_matrix, max_amplicons,
+                              coverage, temperature_range, beta=0.05, logging=False,
+                              output_file=None):
     '''
     Function that performs the greedy amplicon selection in order to find discriminatory amplicons with corresponding primers.
 
@@ -645,14 +688,16 @@ def greedy_amplicon_selection(sequences, amplicons, differences_per_amplicon, pr
     '''
     to_cover = np.sum(differences_per_amplicon, axis=0)
     to_cover = np.sum(to_cover > 0)
-    
-    if logging:
-        log_results = ['Total to cover based on amplicon feasibility: ' + str(to_cover) + ' with ' + str(len(sequences)) + ' sequences and ' + str(len(amplicons)) + ' amplicons.']
-    
-    result_amplicons = []       #this will store the result amplicons
-    result_primers = []         #this will store the result primers
 
-    amplicons.sort(key = lambda x : np.sum(differences_per_amplicon[x.id_num]), reverse=True) #sort based on differentiability
+    if logging:
+        log_results = ['Total to cover based on amplicon feasibility: ' + str(to_cover) + ' with ' + str(
+            len(sequences)) + ' sequences and ' + str(len(amplicons)) + ' amplicons.']
+
+    result_amplicons = []  # this will store the result amplicons
+    result_primers = []  # this will store the result primers
+
+    amplicons.sort(key=lambda x: np.sum(differences_per_amplicon[x.id_num]),
+                   reverse=True)  # sort based on differentiability
     while to_cover > 0 and len(result_amplicons) < max_amplicons and len(amplicons) > 0:
         best_amplicon = amplicons.pop(0)
 
@@ -661,22 +706,49 @@ def greedy_amplicon_selection(sequences, amplicons, differences_per_amplicon, pr
         primer_index.check_amplicon(sequences, best_amplicon, primer_width, search_width)
         result_amplicons.append(best_amplicon)
 
-        #Check if current amplicon can be added based on primer feasibility
+        # Check if current amplicon can be added based on primer feasibility
         if coverage >= 1:
-            [check, cur_primers, covered_differences, sequences_covered] = check_primer_feasibility_single_amplicon_full_coverage(sequences, best_amplicon, differences_per_amplicon[best_amplicon.id_num], primer_index, temperature_range=temperature_range, feasibility_check=True)
+            [check, cur_primers, covered_differences,
+             sequences_covered] = check_primer_feasibility_single_amplicon_full_coverage(sequences, best_amplicon,
+                                                                                         differences_per_amplicon[
+                                                                                             best_amplicon.id_num],
+                                                                                         primer_index,
+                                                                                         temperature_range=temperature_range,
+                                                                                         feasibility_check=True)
         else:
-            [check, cur_primers, covered_differences, sequences_covered] = check_primer_feasibility_single_amplicon_variable_coverage(sequences, best_amplicon, differences_per_amplicon[best_amplicon.id_num], np.sum(differences_per_amplicon[best_amplicon.id_num]), primer_index, temperature_range=temperature_range, beta=beta, coverage=coverage)
+            [check, cur_primers, covered_differences,
+             sequences_covered] = check_primer_feasibility_single_amplicon_variable_coverage(sequences, best_amplicon,
+                                                                                             differences_per_amplicon[
+                                                                                                 best_amplicon.id_num],
+                                                                                             np.sum(
+                                                                                                 differences_per_amplicon[
+                                                                                                     best_amplicon.id_num]),
+                                                                                             primer_index,
+                                                                                             temperature_range=temperature_range,
+                                                                                             beta=beta,
+                                                                                             coverage=coverage)
         if check:
             if coverage >= 1:
-                [_, cur_primers, covered_differences, sequences_covered] = check_primer_feasibility_single_amplicon_full_coverage(sequences, best_amplicon, differences_per_amplicon[best_amplicon.id_num], primer_index, temperature_range=temperature_range, feasibility_check=False)
+                [_, cur_primers, covered_differences,
+                 sequences_covered] = check_primer_feasibility_single_amplicon_full_coverage(sequences, best_amplicon,
+                                                                                             differences_per_amplicon[
+                                                                                                 best_amplicon.id_num],
+                                                                                             primer_index,
+                                                                                             temperature_range=temperature_range,
+                                                                                             feasibility_check=False)
             to_cover = to_cover - np.sum(covered_differences)
             if logging:
-                log_results.append('Amplicon ' + str(best_amplicon.id) + ' succesfully added, new sequence pairs covered: ' + str(np.sum(covered_differences)) + '(fraction differences covered: ' + str(np.sum(covered_differences)/np.sum(differences_per_amplicon[best_amplicon.id_num])) + '), (fraction sequences covered: ' + str(sequences_covered) + ')')
+                log_results.append(
+                    'Amplicon ' + str(best_amplicon.id) + ' succesfully added, new sequence pairs covered: ' + str(
+                        np.sum(covered_differences)) + '(fraction differences covered: ' + str(
+                        np.sum(covered_differences) / np.sum(
+                            differences_per_amplicon[best_amplicon.id_num])) + '), (fraction sequences covered: ' + str(
+                        sequences_covered) + ')')
                 if output_file:
                     with open(output_file, 'a') as f:
                         cur_count = 1
                         for primer in cur_primers['forward']:
-                            f.write('>AMPLICON_' + str(len(result_amplicons)) + '_F' + str(cur_count) +'\n')
+                            f.write('>AMPLICON_' + str(len(result_amplicons)) + '_F' + str(cur_count) + '\n')
                             f.write(primer + '\n')
                             cur_count += 1
                         cur_count = 1
@@ -687,13 +759,38 @@ def greedy_amplicon_selection(sequences, amplicons, differences_per_amplicon, pr
             for amplicon in amplicons:
                 differences_per_amplicon[amplicon.id_num][covered_differences == 1] = 0
             amplicons = [a for a in amplicons if np.sum(differences_per_amplicon[a.id_num]) > 0]
-            amplicons.sort(key = lambda x : np.sum(differences_per_amplicon[x.id_num]), reverse=True)
+            amplicons.sort(key=lambda x: np.sum(differences_per_amplicon[x.id_num]), reverse=True)
             result_primers.append(cur_primers)
         else:
             result_amplicons.pop(-1)
             if logging:
-                log_results.append('Amplicon ' + str(best_amplicon.id) + ' rejected due to being unable to find primers to cover enough sequences')
+                log_results.append('Amplicon ' + str(
+                    best_amplicon.id) + ' rejected due to being unable to find primers to cover enough sequences')
     if logging:
         return log_results, result_amplicons, result_primers
     else:
         return result_amplicons
+
+
+def hamming_distance(primer_one, primer_two):
+    '''
+
+    Parameters
+    ----------
+    primer_one : Primer
+        Object for which the hamming distance will be computed
+    primer_two : Primer
+        Object for which the hamming distance will be computed
+
+    Returns
+    -------
+
+    dist : int
+        Integer representation of the hamming distance between the two given primers
+    '''
+
+    dist = 0
+    for i in range(len(primer_one)):
+        dist += 1 if primer_one.sequence[i] != primer_two.sequence[i] else 0
+
+    return dist

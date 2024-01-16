@@ -1,16 +1,22 @@
+
+
 class Amplicon:
     existing_amplicons = 0
+
     def __init__(self, start, end):
         self.start = start
         self.end = end
-        self.id = (start,end)
+        self.id = (start, end)
         self.id_num = Amplicon.existing_amplicons
         Amplicon.existing_amplicons += 1
-        #Note here that primers are stored as their index in the PrimerIndex, not as Primer object, and every orientation holds the primer indices per sequence
-        self.primers = {'forward' : {}, 'reverse': {}} 
+        # Note here that primers are stored as their index in the PrimerIndex, not as Primer object, and every
+        # orientation holds the primer indices per sequence
+        self.primers = {'forward': {}, 'reverse': {}}
         self.differences = set()
         self.differences_proper = set()
-        
+        # Primer position index dictionary
+        self.primer_pos = {'forward': {}, 'reverse': {}}
+
     def __eq__(self, other):
         try:
             if type(other) == tuple:
@@ -19,14 +25,15 @@ class Amplicon:
                 return self.id == other.id
         except:
             return False
-        
+
     def __lt__(self, other):
-        #Note here that we can either check for the amplicon index, or the differentiation power. Here we use the latter
+        # Note here that we can either check for the amplicon index, or the differentiation power.
+        # Here we use the latter
         return len(self.differences_proper) < len(other.differences_proper)
-    
+
     def __repr__(self):
         return 'Amplicon'
-    
+
     def add_primers(self, primers):
         '''
         Function that adds primers (as strings) to current Amplicon object
@@ -44,10 +51,11 @@ class Amplicon:
         for orientation in primers:
             for sequence in primers[orientation]:
                 if sequence in self.primers[orientation]:
-                    self.primers[orientation][sequence] = self.primers[orientation][sequence].union(primers[orientation][sequence])
+                    self.primers[orientation][sequence] = self.primers[orientation][sequence].union(
+                        primers[orientation][sequence])
                 else:
                     self.primers[orientation][sequence] = primers[orientation][sequence]
-        
+
     def set_differences(self, differences):
         '''
         Function that sets the differences of this Amplicon object to the differences given. Additionally, it tries to do the same but only for "proper" differences.
@@ -69,7 +77,7 @@ class Amplicon:
                     self.differences_proper.add((difference[0].id_num, difference[1].id_num))
         except:
             pass
-        
+
     def check_differences(self, sequences):
         for difference in self.differences:
             try:
@@ -77,3 +85,11 @@ class Amplicon:
                     self.differences_proper.add((difference[0], difference[1]))
             except:
                 continue
+
+    def index_primer_pos(self, sequences):
+
+        # for fwd_primer in self.primers['forward']:
+            # rev_complement = reverse_complement(fwd_primer)
+            # start_index = self.
+
+        pass
