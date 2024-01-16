@@ -8,3 +8,5 @@ fast_output/
 output/
 testing/
 build/
+
+AmpliDiff/__pycache__/

@@ -2,6 +2,8 @@ import cython
 import numpy as np
 from libc.stdint cimport int64_t
 cimport cython
+from libc.stdint cimport int64_t
+
 
 @cython.wraparound(False)
 def generate_amplicons_cy(int[:,:] AMPS, int amplicon_width, int num_amps, signed char[:,:] sequences, int[:,:] sequence_pairs, int total_sequence_pairs, int num_sequences, int[:] ids, signed char[:,:] comparison_matrix, int64_t[:] relevant_nucleotides, int num_relevant, int amplicon_threshold):
