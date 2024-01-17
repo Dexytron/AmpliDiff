@@ -797,10 +797,11 @@ def hamming_distance(primer_one, primer_two):
     dist : int
         Integer representation of the hamming distance between the two given primers
     '''
+    p1, p2 = primer_one.sequence, primer_two.sequence
 
     dist = 0
-    for i in range(len(primer_one)):
-        dist += 1 if primer_one.sequence[i] != primer_two.sequence[i] else 0
+    for i in range(len(p1)):
+        dist += 1 if p1[i] != p2[i] else 0
 
     return dist
 
