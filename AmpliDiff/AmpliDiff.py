@@ -119,7 +119,7 @@ def main():
 
     # Process sequences
     print('Processing sequences')
-    sequences, lb, ub, feasible_amplicons, relevant_nucleotides = process_sequences(sequences,
+    sequences, lb, ub, feasible_amplicons, relevant_nucleotides, seq2amp = process_sequences(sequences,
                                                                                     min_non_align=args.search_width,
                                                                                     amplicon_width=args.amplicon_width,
                                                                                     max_misalign=args.max_misalign)

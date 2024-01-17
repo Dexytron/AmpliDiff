@@ -10,3 +10,5 @@ testing/
 build/
 
 AmpliDiff/__pycache__/
+
+Example/Example_output/

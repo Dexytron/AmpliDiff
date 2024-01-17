@@ -1,12 +1,14 @@
 import numpy as np
 
+
 class Sequence:
     existing_sequences = 0
     lineage_to_number = {}
+
     def __init__(self, sequence, identifier, lineage=None):
         self.sequence = sequence
         self.length = len(sequence)
-        self.sequence_raw = sequence.replace('-','')
+        self.sequence_raw = sequence.replace('-', '')
         self.length_raw = len(self.sequence_raw)
         self.id = identifier
         self.id_num = Sequence.existing_sequences
@@ -18,8 +20,8 @@ class Sequence:
             else:
                 self.lineage_num = len(Sequence.lineage_to_number)
                 Sequence.lineage_to_number[lineage] = len(Sequence.lineage_to_number)
-        self.aligned_to_trim = np.zeros((1)) #initialize aligned to trim array
-        
+        self.aligned_to_trim = np.zeros(1)  # initialize aligned to trim array
+
     def __eq__(self, other):
         try:
             if type(other) == str:
@@ -30,13 +32,13 @@ class Sequence:
                 return self.id == other.id or self.alt_id == other.alt_id
         except:
             return False
-        
+
     def __hash__(self):
         return hash(self.alt_id)
-    
+
     def __repr__(self):
         return 'Sequence'
-    
+
     def align_to_trim(self):
         '''
         Function that determines which character index in the original sequence refers to which index in the raw sequence
@@ -48,13 +50,13 @@ class Sequence:
 
         '''
         self.aligned_to_trim = np.zeros((self.length), dtype=int)
-        map_index = -1 #note that there is always a problem with how we define the "first" index or the "last" index
+        map_index = -1  # note that there is always a problem with how we define the "first" index or the "last" index
         for char_index in range(self.length):
             if self.sequence[char_index] != '-':
                 map_index += 1
             self.aligned_to_trim[char_index] = map_index
         return self.aligned_to_trim
-    
+
     def find_bounds(self, min_non_align):
         '''
         Function that determines the number of "nucleotides" that have to preceed (exceed) such that there are at exactly $min_non_align nucleotides before (after) it. This requires

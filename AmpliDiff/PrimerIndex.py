@@ -5,7 +5,7 @@ import multiprocessing as mp
 from math import ceil
 from classless_methods import generate_comparison_matrix, calculate_degeneracy, disambiguate, reverse_complement
 from Primer import *
-from class_methods import hamming_distance
+from class_methods import hamming_distance, levenshtein_distance
 
 
 class PrimerIndex:
@@ -450,10 +450,10 @@ class PrimerIndex:
         else:
             return PrimerIndex.generate_index(sequences, width, comparison_matrix, mismatches)
 
-    def primer_similarity(self):
+    def primer_similarity(self, similarity_metric='hd'):
         '''
         Function is used to iterate over all the primers and compute their similarity score, and update them in the
-            self.similar[orientation][primer] variable
+            self.similar_primers[orientation][primer] variable
 
         Parameters
         ----------
@@ -468,7 +468,10 @@ class PrimerIndex:
             for similar_primer in self.index2primer['forward']:
                 if primer.__eq__(similar_primer):
                     continue
-                similarity = hamming_distance(primer, similar_primer)
+                if similarity_metric == 'hd':
+                    similarity = hamming_distance(primer, similar_primer)
+                else:
+                    similarity = levenshtein_distance(primer, similar_primer)
                 # The similarity score between two forward primers will be the same as the similarity between
                 # their complements
 

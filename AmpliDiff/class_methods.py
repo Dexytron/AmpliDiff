@@ -120,7 +120,9 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         if sequence.length != sequences[0].length:
             raise ValueError("Sequences have varying lengths, only multiple aligned sequences can be preprocessed!")
 
-    def find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign):
+    sequence2amplicons = {}
+
+    def find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign, sequence_index):
         '''
         Function that determines feasible amplicons based on the number of misalignment characters.
 
@@ -136,6 +138,8 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
             Width of the amplicons to check.
         max_misalign : int
             Maximum allowed number of misalignment characters.
+        sequence_index : int
+            Index of the sequence
 
         Returns
         -------
@@ -155,7 +159,11 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
             if sequence.sequence[i] == '-':  # check if next character is misalign character
                 misalign_indices.append(i)
             if len(misalign_indices) <= max_misalign:  # check if current amplicon has too many misalign characters
-                feasible_amplicons.add((i - amplicon_width + 1, i + 1))
+                amplicon = (i - amplicon_width + 1, i + 1)
+                feasible_amplicons.add(amplicon)
+                if sequence_index not in sequence2amplicons:
+                    sequence2amplicons[sequence_index] = list()
+                sequence2amplicons[sequence_index].append(amplicon)
             try:  # check if the first index in misalign_indices should be removed
                 if misalign_indices[0] == i - amplicon_width + 1:
                     misalign_indices.pop(0)
@@ -189,21 +197,21 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         # If amplicon width and misalign_threshold are specified, find feasible amplicons
         if amplicon_width > 0 and max_misalign >= 0:
             if sequence_index == 0:
-                feasible_amplicons = find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign)
+                feasible_amplicons = find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign, sequence_index)
             else:
                 feasible_amplicons = feasible_amplicons.intersection(
-                    find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign))
+                    find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign, sequence_index))
         sequence_index += 1
 
     # Generate array with ones for positions that should be considered
-    relevant_nucleotides = np.zeros((sequences[0].length), dtype=np.int32)
+    relevant_nucleotides = np.zeros(sequences[0].length, dtype=np.int32)
     for amplicon in feasible_amplicons:
         for index in range(amplicon[0], amplicon[1]):
             if len(options_table[index]) == 0:
                 relevant_nucleotides[index] = 1
     relevant_nucleotides = np.where(relevant_nucleotides == 1)[0]
 
-    return sequences, lb, ub, feasible_amplicons, relevant_nucleotides
+    return sequences, lb, ub, feasible_amplicons, relevant_nucleotides, sequence2amplicons
 
 
 def translate_to_numeric(sequences, amplicons, relevant_nucleotides, comparison_matrix):
@@ -356,6 +364,7 @@ def generate_amplicons(sequences, amplicon_width, comparison_matrix, lb=None,
                                                   relevant_nucleotides.shape[0], max_mismatch)
     X = np.asarray(X, dtype=np.int8)
     print('Done calculating differentiabilities')
+    print(f'What the fuck is X: {X}')
 
     res = []
     for amplicon_index in range(AMPS.shape[0]):
@@ -417,7 +426,7 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
     for sequence in amplicon.primers['forward']:
         for primer in amplicon.primers['forward'][sequence]:
             # If it is not selected or if the distance is 1k between its previous positions
-            if primer not in forward_primers or False:
+            if primer not in forward_primers:  # TODO
                 forward_primers_pos[primer] = amplicon
                 forward_primers[primer] = (model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
     for sequence in amplicon.primers['reverse']:
@@ -794,3 +803,38 @@ def hamming_distance(primer_one, primer_two):
         dist += 1 if primer_one.sequence[i] != primer_two.sequence[i] else 0
 
     return dist
+
+
+def levenshtein_distance(primer_one, primer_two):
+    '''
+    This function is used to compute the minimal number of insertions/deletions/replacements needed to make two strings
+    equal. Code adapted from: https://www.scaler.com/topics/levenshtein-distance-python/
+
+    Parameters
+    ----------
+    primer_one : Primer
+        Object from which we take the `sequence` and compute the levenshtein distance.
+    primer_two : Primer
+        Object from which we take the `sequence` and compute the levenshtein distance.
+
+    Returns
+    -------
+
+    '''
+    p1 = primer_one.sequence
+    p2 = primer_two.sequence
+
+    mem = [[0 for j in range(len(p2) + 1)] for i in range(len(p1) + 1)]
+    mem[0] = [i for i in range(len(p2) + 1)]
+    mem[1] = [i for i in range(len(p1) + 1)]
+
+    for i in range(1, len(p1) + 1):
+        for j in range(1, len(p2) + 1):
+            if p1[i - 1] == p2[j - 1]:
+                mem[i][j] = mem[i - 1][j - 1]
+            else:
+                mem[i][j] = 1 + min(mem[i - 1][j], mem[i][j - 1], mem[i - 1][j - 1])
+
+    return mem[len(p1)][len(p2)]
+
+
