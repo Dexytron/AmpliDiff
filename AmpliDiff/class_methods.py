@@ -808,7 +808,8 @@ def hamming_distance(primer_one, primer_two):
 def levenshtein_distance(primer_one, primer_two):
     '''
     This function is used to compute the minimal number of insertions/deletions/replacements needed to make two strings
-    equal. Code adapted from: https://www.scaler.com/topics/levenshtein-distance-python/
+    equal. Code adapted from: https://www.scaler.com/topics/levenshtein-distance-python/,
+    and https://en.wikipedia.org/wiki/Levenshtein_distance
 
     Parameters
     ----------

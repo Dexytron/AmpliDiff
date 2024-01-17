@@ -82,6 +82,10 @@ def init_parser():
     parser.add_argument('--inexact_matching', type=int, default=0,
                         help='Enables AmpliDiff to allow for inexact matching between primers and amplicons. '
                              'The input number represents the number of allowed mismatches per primer.')
+    parser.add_argument('--dist_metric', type=str, default='hd',
+                        help='When using inexact matching, two distance metrics can be considered, the Hamming Distance'
+                             ' and the Levenshtein Distance. If the passed parameter is by default the Hamming Distance'
+                             ' will be used ("hd"), otherwise, the user can pass "lvd" to use the Levenshtein Distance.')
 
     return parser
 
@@ -180,11 +184,20 @@ def main():
 
     # Generating the PrimerIndex
     PrimerIndex.PrimerIndex.set_thresholds(thresholds)
+
+    if args.dist_metric != 'hd' and args.dist_metric != 'lvd':
+        raise Exception('Invalid distance metric, input either "hd" for Hamming Distance, or "lvd" for Levenshtein'
+                        ' Distance!')
+
+
     print('Generating primer index')
     primer_index = PrimerIndex.PrimerIndex.generate_index_mp(sequences, args.primer_width, comparison_matrix,
                                                              max_degeneracy=args.max_primer_degeneracy,
-                                                             processors=args.cores)
+                                                             processors=args.cores,
+                                                             mismatches=args.inexact_matching,
+                                                             distance=args.dist_metric)
     primer_index.remove_redundant()
+    primer_index.primer_similarity()  # Finds all the similar primers
     with open(args.output + '/runtimes_' + str(args.seed) + '.txt', 'a') as f:
         f.write(
             'Time spent generating primer index and filtering for feasible primers: ' + str(time.time() - st) + '\n')

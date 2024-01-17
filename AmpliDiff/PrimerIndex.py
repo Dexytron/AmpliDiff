@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import numpy as np
 import copy
 import itertools
@@ -32,10 +34,11 @@ class PrimerIndex:
         # Used to determine whether inexact matching should be used
         self.inexact = False
         self.mismatches = 0
+        self.distance = "hd"
         # It is important to note that the similarity score between the two forward primers, will be the same
         # as the similarity score between their respective reverse primers.
-        self.similar_primers = {'forward': {},
-                                'reverse': {}}  # Contains clusters of similar primers (Using Hamming Distance)
+        self.similar_primers = {'forward': defaultdict(set),
+                                'reverse': defaultdict(set)}  # Contains clusters of similar primers
 
     # This does not work as intended currently
     def __eq__(self, other):
@@ -257,7 +260,8 @@ class PrimerIndex:
                     for forward_primer in disambiguate(current_fwd_primer):
                         if forward_primer in self.primer2index['forward']:
                             if self.index2primer['forward'][self.primer2index['forward'][forward_primer]].feasible:
-                                amplicon.primers['forward'][sequence.id_num].add(self.primer2index['forward'][forward_primer])
+                                amplicon.primers['forward'][sequence.id_num].add(
+                                    self.primer2index['forward'][forward_primer])
                                 amplicon.full_primerset['forward'].add(self.primer2index['forward'][forward_primer])
                             # !!! - SHOULD ONLY BE EXECUTED WHEN self.inexact IS TRUE
                             if self.inexact:  # If inexact matching is enabled, we also add all the similar primers
@@ -270,7 +274,8 @@ class PrimerIndex:
                     for reverse_primer in disambiguate(current_rev_primer):
                         if reverse_primer in self.primer2index['reverse']:
                             if self.index2primer['reverse'][self.primer2index['reverse'][reverse_primer]].feasible:
-                                amplicon.primers['reverse'][sequence.id_num].add(self.primer2index['reverse'][reverse_primer])
+                                amplicon.primers['reverse'][sequence.id_num].add(
+                                    self.primer2index['reverse'][reverse_primer])
                                 amplicon.full_primerset['reverse'].add(self.primer2index['reverse'][reverse_primer])
                             if self.inexact:  # If inexact matching is enabled, we also add all the similar primers
                                 self.add_similar_primers(amplicon, sequence, 'reverse', reverse_primer)
@@ -380,14 +385,13 @@ class PrimerIndex:
                     primer_index.add_sequence(sequence, cur_index, reverse_primer, 'reverse')
 
     @staticmethod
-    def generate_index(sequences, width, comparison_matrix, max_degeneracy=4 ** 5, mismatches=0):
+    def generate_index(sequences, width, comparison_matrix, max_degeneracy=4 ** 5, mismatches=0, distance='hd'):
         '''
         Static function that generates a primer index for the given sequences using a primer width of $width. For the
         multiprocessing variant see generate_index_mp
 
         Parameters
         ----------
-        mismatches : Number of mismatches allowed if inexact matching is enabled.
         sequences : list[ Sequence ]
             List of sequences to find primers in.
         width : int
@@ -396,6 +400,11 @@ class PrimerIndex:
             Dictionary that determines which characters should be considered equal.
         max_degeneracy : int, optional
             Maximum allowed degeneracy of a k-mer for processing it.
+        mismatches : int
+            Number of mismatches allowed if inexact matching is enabled.
+        distance : str
+            Determines whether the Hamming or the Levenshtein Distance will be used to compute the similarity between
+            Primers.
 
         Returns
         -------
@@ -404,6 +413,7 @@ class PrimerIndex:
 
         '''
         primer_index = PrimerIndex()
+        primer_index.distance = distance
         primer_index.mismatches = max(0, mismatches)
         primer_index.inexact = primer_index.mismatches > 0
         i = 0
@@ -435,22 +445,25 @@ class PrimerIndex:
         return primer_index
 
     @staticmethod
-    def generate_index_mp(sequences, width, comparison_matrix, max_degeneracy=4 ** 5, processors=1, mismatches=0):
+    def generate_index_mp(sequences, width, comparison_matrix, max_degeneracy=4 ** 5, processors=1, mismatches=0,
+                          distance='hd'):
         if processors > 1:
             sequences_partitioned = [sequences[i:i + (ceil(len(sequences) / processors))] for i in
                                      range(0, len(sequences), ceil(len(sequences) / processors))]
             with mp.Pool(processors) as pool:
                 indices = pool.starmap(PrimerIndex.generate_index, zip(sequences_partitioned, itertools.repeat(width),
                                                                        itertools.repeat(comparison_matrix),
-                                                                       itertools.repeat(max_degeneracy)))
+                                                                       itertools.repeat(max_degeneracy),
+                                                                       itertools.repeat(mismatches),
+                                                                       itertools.repeat(distance)))
             master_index = indices[0]
             for index in indices[1:]:
                 master_index.merge_indices(index)
             return master_index
         else:
-            return PrimerIndex.generate_index(sequences, width, comparison_matrix, mismatches)
+            return PrimerIndex.generate_index(sequences, width, comparison_matrix, max_degeneracy, mismatches, distance)
 
-    def primer_similarity(self, similarity_metric='hd'):
+    def primer_similarity(self):
         '''
         Function is used to iterate over all the primers and compute their similarity score, and update them in the
             self.similar_primers[orientation][primer] variable
@@ -463,12 +476,12 @@ class PrimerIndex:
         -------
 
         '''
-        print('Primer similarity function accessed')
+        print('Computing Primer Similarity')
         for primer in self.index2primer['forward']:
             for similar_primer in self.index2primer['forward']:
                 if primer.__eq__(similar_primer):
                     continue
-                if similarity_metric == 'hd':
+                if self.distance == 'hd':
                     similarity = hamming_distance(primer, similar_primer)
                 else:
                     similarity = levenshtein_distance(primer, similar_primer)
@@ -481,15 +494,18 @@ class PrimerIndex:
                 # If they are similar then add the primers to each other's respective similarity set
                 if similarity <= self.mismatches:
                     # Forward Primers
-                    self.similar_primers['forward'][primer].add(similar_primer)
-                    self.similar_primers['forward'][similar_primer].add(primer)
+                    self.similar_primers['forward'][primer.sequence].add(similar_primer.sequence)
+                    self.similar_primers['forward'][similar_primer.sequence].add(primer.sequence)
 
+                    # TODO change this such that it does not create new Primer objects since they are not needed
                     # Reverse primers
                     reverse_primer = Primer(reverse_complement(primer.sequence), 'reverse')
-                    reverse_similar_primer = Primer(reverse_complement(similar_primer.seqence), 'reverse')
+                    reverse_similar_primer = Primer(reverse_complement(similar_primer.sequence), 'reverse')
 
-                    self.similar_primers['reverse'][reverse_primer].add(reverse_similar_primer)
-                    self.similar_primers['reverse'][reverse_similar_primer].add(reverse_primer)
+                    self.similar_primers['reverse'][reverse_primer.sequence].add(reverse_similar_primer.sequence)
+                    self.similar_primers['reverse'][reverse_similar_primer.sequence].add(reverse_primer.sequence)
+
+        print('Done computing Primer Similarity Score')
 
     def add_similar_primers(self, amplicon, sequence, orientation, original_primer):
         '''
@@ -501,7 +517,7 @@ class PrimerIndex:
         amplicon - Amplicon for which we are adding the primers
         sequence - The sequence being considered
         orientation - The orientation of the primers (forward or reverse)
-        original_primer - Primer being considered, for which we should also include the similar primers
+        original_primer - Primer sequence being considered, for which we should also include the similar primers
 
         Returns
         -------

@@ -2,6 +2,7 @@ from classless_methods import reverse_complement, calculate_degeneracy, calculat
 from Bio.SeqUtils import MeltingTemp as mt
 import RNA
 
+
 class Primer:
     def __init__(self, sequence, orientation):
         self.sequence = sequence
