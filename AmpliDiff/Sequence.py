@@ -20,7 +20,7 @@ class Sequence:
             else:
                 self.lineage_num = len(Sequence.lineage_to_number)
                 Sequence.lineage_to_number[lineage] = len(Sequence.lineage_to_number)
-        self.aligned_to_trim = np.zeros(1)  # initialize aligned to trim array
+        self.aligned_to_trim = np.zeros(1)  # initialize aligned to trim array, Use to map Ampl. seq. to raw_seq
 
     def __eq__(self, other):
         try:

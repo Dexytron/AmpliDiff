@@ -6,9 +6,9 @@ import RNA
 class Primer:
     def __init__(self, sequence, orientation):
         self.sequence = sequence
-        self.indices = {} #stores the starting indices of this primer for the sequences of interest
+        self.indices = {}   # stores the starting indices of this primer for the sequences of interest
         self.orientation = orientation
-        self.feasible = True #By default, feasibility of a primer is set to true
+        self.feasible = True    # By default, feasibility of a primer is set to true
         self.temperature = None
         
     def __eq__(self, other):
@@ -29,12 +29,13 @@ class Primer:
         sequence : Sequence
             Sequence object that contains this primer.
         sequence_index : int
-            Starting index of the primer in sequence (e.g. primer=act, sequence=ggactca -> starting_index=2 as sequence[2:2+3] = act).
+            Starting index of the primer in sequence (e.g. primer=act, sequence=ggactca -> starting_index=2 as
+            sequence[2:2+3] = act).
 
         Returns
         -------
         bool
-            True if the sequence has been succesfully added, False otherwise.
+            True if the sequence has been successfully added, False otherwise.
 
         '''
         if self.feasible:
@@ -49,7 +50,8 @@ class Primer:
             
     def check_compatibility(self, other, comparison_matrix, comparison_tolerance):
         '''
-        Function that checks whether this primer is compatible with the $other primer based on complementarity in all possible alignments.
+        Function that checks whether this primer is compatible with the $other primer based on complementarity in all
+        possible alignments.
 
         Parameters
         ----------
@@ -63,8 +65,8 @@ class Primer:
         Returns
         -------
         res : (int, str)
-            Tuple where the first element is the maximum complementarity (or the first complementarity that exceeds the tolerance), and
-            the second element is a visual representation of this complementarity.
+            Tuple where the first element is the maximum complementarity (or the first complementarity that exceeds the
+            tolerance), and the second element is a visual representation of this complementarity.
 
         '''
         res = (0, '')
@@ -74,35 +76,41 @@ class Primer:
             fwd_check = []
             rev_check = []
             for j in range(i, len(self.sequence)):
-                #Check forward comparison
-                if comparison_matrix[(to_compare[j], self.sequence[j-i])][0] and not comparison_matrix[(to_compare[j], self.sequence[j-i])][1]:
+                # Check forward comparison
+                if comparison_matrix[(to_compare[j], self.sequence[j-i])][0] and not \
+                        comparison_matrix[(to_compare[j], self.sequence[j-i])][1]:
                     fwd_check.append(1)
                 else:
                     fwd_check.append(0)
                 
-                #Check backward comparison
-                if comparison_matrix[(self.sequence[j], to_compare[j-i])][0] and not comparison_matrix[(self.sequence[j], to_compare[j-i])][1]:
+                # Check backward comparison
+                if comparison_matrix[(self.sequence[j], to_compare[j-i])][0] and not \
+                        comparison_matrix[(self.sequence[j], to_compare[j-i])][1]:
                     rev_check.append(1)
                 else:
                     rev_check.append(0)
-            #Check forward
+            # Check forward
             comparison = sum(fwd_check)
             if comparison > res[0]:
                 if self == other:
-                    res = [comparison, i*'*' + self.sequence + '\n' + self.sequence[::-1] + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in fwd_check) + i*'*']
+                    res = [comparison, i*'*' + self.sequence + '\n' + self.sequence[::-1]
+                           + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in fwd_check) + i*'*']
                 else:
-                    res = [comparison, i*'*' + self.sequence + '\n' + other.sequence[::-1] + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in fwd_check) + i*'*']
-            #If number of matches exceeds upperbound then return
+                    res = [comparison, i*'*' + self.sequence + '\n' + other.sequence[::-1]
+                           + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in fwd_check) + i*'*']
+            # If number of matches exceeds upperbound then return
             if comparison > comparison_tolerance:
                 return res
-            #Check reverse
+            # Check reverse
             comparison = sum(rev_check)
             if comparison > res[0]:
                 if self == other:
-                    res = [comparison, i*'*' + self.sequence[::-1] + '\n' + self.sequence + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in rev_check) + i*'*']
+                    res = [comparison, i*'*' + self.sequence[::-1]
+                           + '\n' + self.sequence + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in rev_check) + i*'*']
                 else:
-                    res = [comparison, i*'*' + other.sequence[::-1] + '\n' + self.sequence + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in rev_check) + i*'*']
-            #If number of matches exceeds upperbound then return
+                    res = [comparison, i*'*' + other.sequence[::-1]
+                           + '\n' + self.sequence + i*'*' + '\n' + i*'*' + ''.join(str(c) for c in rev_check) + i*'*']
+            # If number of matches exceeds upperbound then return
             if comparison > comparison_tolerance:
                 return res
         return res

@@ -120,7 +120,7 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         if sequence.length != sequences[0].length:
             raise ValueError("Sequences have varying lengths, only multiple aligned sequences can be preprocessed!")
 
-    sequence2amplicons = {}
+    amplicon2sequence = {}
 
     def find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign, sequence_index):
         '''
@@ -161,9 +161,9 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
             if len(misalign_indices) <= max_misalign:  # check if current amplicon has too many misalign characters
                 amplicon = (i - amplicon_width + 1, i + 1)
                 feasible_amplicons.add(amplicon)
-                if sequence_index not in sequence2amplicons:
-                    sequence2amplicons[sequence_index] = list()
-                sequence2amplicons[sequence_index].append(amplicon)
+                if amplicon not in amplicon2sequence:
+                    amplicon2sequence[amplicon] = list()
+                amplicon2sequence[amplicon].append(sequence_index)
             try:  # check if the first index in misalign_indices should be removed
                 if misalign_indices[0] == i - amplicon_width + 1:
                     misalign_indices.pop(0)
@@ -197,7 +197,8 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
         # If amplicon width and misalign_threshold are specified, find feasible amplicons
         if amplicon_width > 0 and max_misalign >= 0:
             if sequence_index == 0:
-                feasible_amplicons = find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign, sequence_index)
+                feasible_amplicons = find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign,
+                                                             sequence_index)
             else:
                 feasible_amplicons = feasible_amplicons.intersection(
                     find_feasible_amplicons(sequence, lb, ub, amplicon_width, max_misalign, sequence_index))
@@ -211,7 +212,7 @@ def process_sequences(sequences, min_non_align=0, amplicon_width=0, max_misalign
                 relevant_nucleotides[index] = 1
     relevant_nucleotides = np.where(relevant_nucleotides == 1)[0]
 
-    return sequences, lb, ub, feasible_amplicons, relevant_nucleotides, sequence2amplicons
+    return sequences, lb, ub, feasible_amplicons, relevant_nucleotides, amplicon2sequence
 
 
 def translate_to_numeric(sequences, amplicons, relevant_nucleotides, comparison_matrix):
@@ -364,7 +365,6 @@ def generate_amplicons(sequences, amplicon_width, comparison_matrix, lb=None,
                                                   relevant_nucleotides.shape[0], max_mismatch)
     X = np.asarray(X, dtype=np.int8)
     print('Done calculating differentiabilities')
-    print(f'What the fuck is X: {X}')
 
     res = []
     for amplicon_index in range(AMPS.shape[0]):
@@ -389,9 +389,11 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
     primer_index : PrimerIndex
         PrimerIndex object containing all the primers.
     temperature_range : float, optional
-        Maximum difference between minimal primer melting temperature and maximal primer melting temperature. Default is 5.
+        Maximum difference between minimal primer melting temperature and maximal primer melting temperature.
+        Default is 5.
     feasibility_check : bool, optional
-        If true, will only search for feasibility of the problem instance, otherwise will find minimal primer sets. Default is False.
+        If true, will only search for feasibility of the problem instance, otherwise will find minimal primer sets.
+        Default is False.
 
     Returns
     -------
@@ -418,22 +420,18 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
     # Sequence variables
     covered_binary = {}  # sequence_id -> variable
 
-    # Selected primers positions
-    forward_primers_pos = {}
-    reverse_primers_pos = {}
-
     # Initialize primer and sequence variables
     for sequence in amplicon.primers['forward']:
         for primer in amplicon.primers['forward'][sequence]:
-            # If it is not selected or if the distance is 1k between its previous positions
-            if primer not in forward_primers:  # TODO
-                forward_primers_pos[primer] = amplicon
-                forward_primers[primer] = (model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
+            if primer not in forward_primers:
+                forward_primers[primer] = (
+                    model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
+
     for sequence in amplicon.primers['reverse']:
         for primer in amplicon.primers['reverse'][sequence]:
             if primer not in reverse_primers:
                 reverse_primers[primer] = (
-                model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
+                    model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
     for sequence in sequences:
         covered_binary[sequence.id_num] = model.addVar(vtype=GRB.BINARY, obj=0)
 
@@ -458,12 +456,12 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
         # Temperature constraints
         for primer in amplicon.full_primerset['forward']:  # iterate over forward primers
             model.addConstr(min_temp <= primer_index.index2primer['forward'][primer].temperature * (
-                        3 - 2 * forward_primers[primer][0]))
+                    3 - 2 * forward_primers[primer][0]))
             model.addConstr(
                 max_temp >= primer_index.index2primer['forward'][primer].temperature * forward_primers[primer][0])
         for primer in amplicon.full_primerset['reverse']:
             model.addConstr(min_temp <= primer_index.index2primer['reverse'][primer].temperature * (
-                        3 - 2 * reverse_primers[primer][0]))
+                    3 - 2 * reverse_primers[primer][0]))
             model.addConstr(
                 max_temp >= primer_index.index2primer['reverse'][primer].temperature * reverse_primers[primer][0])
     model.addConstr(max_temp - min_temp <= temperature_range)
@@ -472,13 +470,20 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
     for pair in itertools.combinations(forward_primers.keys(), 2):
         model.addConstr(forward_primers[pair[0]][0] + forward_primers[pair[1]][0] <= primer_index.check_conflict(
             [primer_index.index2primer['forward'][pair[0]], primer_index.index2primer['forward'][pair[1]]]))
+
     for pair in itertools.combinations(reverse_primers.keys(), 2):
         model.addConstr(reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict(
             [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]]))
+
     for fwd in forward_primers:
         for rev in reverse_primers:
             model.addConstr(forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict(
                 [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]]))
+            # TODO
+            # For the primers add a constraint such that the distance between two possible primer pairs is 1k
+            # fwd_primer_indices = primer_index.index2primer['forward'][fwd].indices
+            # rev_primer_indices = primer_index.index2primer['reverse'][rev].indices
+            # primer_loc = [[(i, j) for j in rev_primer_indices] for i in fwd_primer_indices]
 
     # Set variable for number of primer pairs
     model.addConstr(num_primer_pairs >= sum(forward_primers[primer][0] for primer in forward_primers))
@@ -562,12 +567,12 @@ def check_primer_feasibility_single_amplicon_variable_coverage(sequences, amplic
         for primer in amplicon.primers['forward'][sequence]:
             if primer not in forward_primers:
                 forward_primers[primer] = (
-                model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
+                    model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['forward'][primer].temperature)
     for sequence in amplicon.primers['reverse']:
         for primer in amplicon.primers['reverse'][sequence]:
             if primer not in reverse_primers:
                 reverse_primers[primer] = (
-                model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
+                    model.addVar(vtype=GRB.BINARY, obj=0), primer_index.index2primer['reverse'][primer].temperature)
     for sequence in sequences:
         covered_binary[sequence.id_num] = model.addVar(vtype=GRB.BINARY, obj=0)
     for s1 in range(len(sequences)):
@@ -594,12 +599,12 @@ def check_primer_feasibility_single_amplicon_variable_coverage(sequences, amplic
         # Temperature constraints
         for primer in amplicon.full_primerset['forward']:  # iterate over forward primers
             model.addConstr(min_temp <= primer_index.index2primer['forward'][primer].temperature * (
-                        3 - 2 * forward_primers[primer][0]))
+                    3 - 2 * forward_primers[primer][0]))
             model.addConstr(
                 max_temp >= primer_index.index2primer['forward'][primer].temperature * forward_primers[primer][0])
         for primer in amplicon.full_primerset['reverse']:
             model.addConstr(min_temp <= primer_index.index2primer['reverse'][primer].temperature * (
-                        3 - 2 * reverse_primers[primer][0]))
+                    3 - 2 * reverse_primers[primer][0]))
             model.addConstr(
                 max_temp >= primer_index.index2primer['reverse'][primer].temperature * reverse_primers[primer][0])
     model.addConstr(max_temp - min_temp <= temperature_range)
@@ -838,5 +843,3 @@ def levenshtein_distance(primer_one, primer_two):
                 mem[i][j] = 1 + min(mem[i - 1][j], mem[i][j - 1], mem[i - 1][j - 1])
 
     return mem[len(p1)][len(p2)]
-
-

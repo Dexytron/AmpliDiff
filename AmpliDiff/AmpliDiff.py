@@ -123,7 +123,7 @@ def main():
 
     # Process sequences
     print('Processing sequences')
-    sequences, lb, ub, feasible_amplicons, relevant_nucleotides, seq2amp = process_sequences(sequences,
+    sequences, lb, ub, feasible_amplicons, relevant_nucleotides, amp2seq = process_sequences(sequences,
                                                                                     min_non_align=args.search_width,
                                                                                     amplicon_width=args.amplicon_width,
                                                                                     max_misalign=args.max_misalign)
@@ -197,7 +197,10 @@ def main():
                                                              mismatches=args.inexact_matching,
                                                              distance=args.dist_metric)
     primer_index.remove_redundant()
-    primer_index.primer_similarity()  # Finds all the similar primers
+
+    if args.inexact_matching > 0:
+        primer_index.primer_similarity()  # Finds all the similar primers
+
     with open(args.output + '/runtimes_' + str(args.seed) + '.txt', 'a') as f:
         f.write(
             'Time spent generating primer index and filtering for feasible primers: ' + str(time.time() - st) + '\n')

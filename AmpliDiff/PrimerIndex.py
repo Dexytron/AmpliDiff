@@ -263,7 +263,6 @@ class PrimerIndex:
                                 amplicon.primers['forward'][sequence.id_num].add(
                                     self.primer2index['forward'][forward_primer])
                                 amplicon.full_primerset['forward'].add(self.primer2index['forward'][forward_primer])
-                            # !!! - SHOULD ONLY BE EXECUTED WHEN self.inexact IS TRUE
                             if self.inexact:  # If inexact matching is enabled, we also add all the similar primers
                                 self.add_similar_primers(amplicon, sequence, 'forward', forward_primer)
 
@@ -282,8 +281,9 @@ class PrimerIndex:
 
     def update_conflict_matrix(self, primers):
         '''
-        Function that generates the conflicts for all the primer pairs that can be obtained by taking combinations of primers from $primers. If this PrimerIndex
-        already has a conflict matrix, it will only be updated and not generated again.
+        Function that generates the conflicts for all the primer pairs that can be obtained by taking combinations of
+        primers from $primers. If this PrimerIndex already has a conflict matrix, it will only be updated and not
+        generated again.
 
         Parameters
         ----------
@@ -295,6 +295,7 @@ class PrimerIndex:
         None.
 
         '''
+
         if not self.conflict_matrix:
             # Matrix entry will be equal to -1 if not yet assigned, 1 if primers have a conflict, 2 if primers don't
             # have a conflict
@@ -305,12 +306,14 @@ class PrimerIndex:
                                          dtype=np.int8),
                 ('r', 'r'): -1 * np.ones((len(self.index2primer['reverse']), len(self.index2primer['reverse'])),
                                          dtype=np.int8)}
+
         # Iterate over primer pairs
         for pair in itertools.combinations(primers, 2):
             # First primer is forward, second is reverse
             if pair[0].orientation == 'forward' and pair[1].orientation == 'reverse':
                 current_index_pair = (
                     self.primer2index['forward'][pair[0].sequence], self.primer2index['reverse'][pair[1].sequence])
+
                 if self.conflict_matrix[('f', 'r')][current_index_pair] == -1:
                     if pair[0].check_compatibility(pair[1], self.comparison_matrix,
                                                    self.thresholds['self_complementarity_threshold'])[0] > \
@@ -318,10 +321,12 @@ class PrimerIndex:
                         self.conflict_matrix[('f', 'r')][current_index_pair] = 1
                     else:
                         self.conflict_matrix[('f', 'r')][current_index_pair] = 2
+
             # First primer is reverse, second is forward
             elif pair[0].orientation == 'reverse' and pair[1].orientation == 'forward':
                 current_index_pair = (
                     self.primer2index['forward'][pair[1].sequence], self.primer2index['reverse'][pair[0].sequence])
+
                 if self.conflict_matrix[('f', 'r')][current_index_pair] == -1:
                     if pair[0].check_compatibility(pair[1], self.comparison_matrix,
                                                    self.thresholds['self_complementarity_threshold'])[0] > \
@@ -362,7 +367,7 @@ class PrimerIndex:
             orientation = ('f', 'r')
             pair = (self.primer2index['forward'][primer_pair[0].sequence],
                     self.primer2index['reverse'][primer_pair[1].sequence])
-        elif primer_pair[1].orientation == 'reverse' and primer_pair[1].orientation == 'forward':
+        elif primer_pair[0].orientation == 'reverse' and primer_pair[1].orientation == 'forward':
             orientation = ('f', 'r')
             pair = (self.primer2index['forward'][primer_pair[1].sequence],
                     self.primer2index['reverse'][primer_pair[0].sequence])
@@ -522,9 +527,7 @@ class PrimerIndex:
         Returns
         -------
         '''
-        # TODO here we should keep track of the indices where these inexact primers will bind to the
-        #  amplicon, since inexact matching is allowed, we need to ensure that the same primer is
-        #  NOT used on the same amplicon within a range of 2 * search_window !!!
+        # TODO
         for similar_primer in self.similar_primers[orientation][original_primer]:
             if similar_primer in self.primer2index[orientation]:
                 if self.index2primer[orientation][self.primer2index[orientation][similar_primer]].feasible:
