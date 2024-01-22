@@ -10,7 +10,7 @@ class Primer:
         self.orientation = orientation
         self.feasible = True    # By default, feasibility of a primer is set to true
         self.temperature = None
-        
+
     def __eq__(self, other):
         try:
             if type(other) == str:
@@ -115,7 +115,9 @@ class Primer:
                 return res
         return res
             
-    def check_feasibility(self, comparison_matrix, gc_lb=0.4, gc_ub=0.6, melting_lb=55, melting_ub=75, end_at_threshold=2, end_gc_threshold=3, monorun_threshold=3, duorun_threshold=2, mfe_threshold=-5, self_complementarity_threshold=10, verbose=False):
+    def check_feasibility(self, comparison_matrix, gc_lb=0.4, gc_ub=0.6, melting_lb=55, melting_ub=75,
+                          end_at_threshold=2, end_gc_threshold=3, monorun_threshold=3, duorun_threshold=2,
+                          mfe_threshold=-5, self_complementarity_threshold=10, verbose=False):
         '''
         Function that determines whether this primer object is feasible given several chemical and thermal constraints.
 
