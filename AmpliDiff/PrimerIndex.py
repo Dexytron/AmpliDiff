@@ -382,34 +382,34 @@ class PrimerIndex:
                 if self.inexact:
                     fwd_primer = self.index2primer['forward'][self.primer2index['forward'][pair[0].sequence]]
                     rev_primer = self.index2primer['reverse'][self.primer2index['reverse'][pair[1].sequence]]
-                    dist = float('inf')
 
                     # If there is an exact match of the two primers in the sequence, compute the enclosed region
                     if seq_id in fwd_primer.indices.keys() and seq_id in rev_primer.indices.keys():
                         dist = abs(fwd_primer.indices[seq_id] - rev_primer.indices[seq_id])
 
-                    similar_fwd = self.similar_primers['forward'][pair[0].sequence]  # Set of similar primers
-                    similar_rev = self.similar_primers['reverse'][pair[1].sequence]  # Set of similar primers
+                        similar_fwd = self.similar_primers['forward'][pair[0].sequence]  # Set of similar primers
+                        similar_rev = self.similar_primers['reverse'][pair[1].sequence]  # Set of similar primers
 
-                    distance_constraint = np.empty(shape=(0, 1), dtype=bool)
+                        distance_constraint = np.empty(shape=(0, 1), dtype=bool)
 
-                    for fwd in similar_fwd:
-                        fwd_pr = self.index2primer['forward'][self.primer2index['forward'][fwd]]
-                        if seq_id in fwd_pr.indices.keys():
-                            for rev in similar_rev:
-                                rev_pr = self.index2primer['reverse'][self.primer2index['reverse'][rev]]
-                                if seq_id in rev_pr.indices.keys():
-                                    if fwd_pr.indices[seq_id] < rev_pr.indices[seq_id]:
-                                        distance_constraint = np.append(
-                                            distance_constraint,
-                                            rev_pr.indices[seq_id] - fwd_pr.indices[seq_id] > self.enclosed_region)
+                        for fwd in similar_fwd:
+                            fwd_pr = self.index2primer['forward'][self.primer2index['forward'][fwd]]
+                            if seq_id in fwd_pr.indices.keys():
+                                for rev in similar_rev:
+                                    rev_pr = self.index2primer['reverse'][self.primer2index['reverse'][rev]]
+                                    if seq_id in rev_pr.indices.keys():
+                                        if fwd_pr.indices[seq_id] < rev_pr.indices[seq_id]:
+                                            distance_constraint = np.append(
+                                                distance_constraint,
+                                                rev_pr.indices[seq_id] - fwd_pr.indices[seq_id] > self.enclosed_region)
 
-                    is_satisfied = False
-                    if dist < self.enclosed_region and np.all(~distance_constraint):
+                        is_satisfied = False
+                        if dist < self.enclosed_region and np.all(~distance_constraint):
+                            is_satisfied = True
+                        elif dist >= self.enclosed_region and np.count_nonzero(distance_constraint == True) == 1:
+                            is_satisfied = True
+                    else:
                         is_satisfied = True
-                    elif dist >= self.enclosed_region and np.count_nonzero(distance_constraint == True) == 1:
-                        is_satisfied = True
-
                 if self.conflict_matrix[('f', 'r')][current_index_pair] == -1:
                     if pair[0].check_compatibility(pair[1], self.comparison_matrix,
                                                    self.thresholds['self_complementarity_threshold'])[0] > \
@@ -431,32 +431,33 @@ class PrimerIndex:
                 if self.inexact:
                     fwd_primer = self.index2primer['forward'][self.primer2index['forward'][pair[1].sequence]]
                     rev_primer = self.index2primer['reverse'][self.primer2index['reverse'][pair[0].sequence]]
-                    dist = float('inf')
 
                     # If there is an exact match of the two primers in the sequence, compute the enclosed region
                     if seq_id in fwd_primer.indices.keys() and seq_id in rev_primer.indices.keys():
                         dist = abs(fwd_primer.indices[seq_id] - rev_primer.indices[seq_id])
 
-                    similar_fwd = self.similar_primers['forward'][pair[1].sequence]  # Set of similar primers
-                    similar_rev = self.similar_primers['reverse'][pair[0].sequence]  # Set of similar primers
+                        similar_fwd = self.similar_primers['forward'][pair[1].sequence]  # Set of similar primers
+                        similar_rev = self.similar_primers['reverse'][pair[0].sequence]  # Set of similar primers
 
-                    distance_constraint = np.empty(shape=(0, 1), dtype=bool)
+                        distance_constraint = np.empty(shape=(0, 1), dtype=bool)
 
-                    for fwd in similar_fwd:
-                        fwd_pr = self.index2primer['forward'][self.primer2index['forward'][fwd]]
-                        if seq_id in fwd_pr.indices.keys():
-                            for rev in similar_rev:
-                                rev_pr = self.index2primer['reverse'][self.primer2index['reverse'][rev]]
-                                if seq_id in rev_pr.indices.keys():
-                                    if fwd_pr.indices[seq_id] < rev_pr.indices[seq_id]:
-                                        distance_constraint = np.append(
-                                            distance_constraint,
-                                            rev_pr.indices[seq_id] - fwd_pr.indices[seq_id] > self.enclosed_region)
+                        for fwd in similar_fwd:
+                            fwd_pr = self.index2primer['forward'][self.primer2index['forward'][fwd]]
+                            if seq_id in fwd_pr.indices.keys():
+                                for rev in similar_rev:
+                                    rev_pr = self.index2primer['reverse'][self.primer2index['reverse'][rev]]
+                                    if seq_id in rev_pr.indices.keys():
+                                        if fwd_pr.indices[seq_id] < rev_pr.indices[seq_id]:
+                                            distance_constraint = np.append(
+                                                distance_constraint,
+                                                rev_pr.indices[seq_id] - fwd_pr.indices[seq_id] > self.enclosed_region)
 
-                    is_satisfied = False
-                    if dist < self.enclosed_region and np.all(~distance_constraint):
-                        is_satisfied = True
-                    elif dist >= self.enclosed_region and np.count_nonzero(distance_constraint == True) == 1:
+                        is_satisfied = False
+                        if dist < self.enclosed_region and np.all(~distance_constraint):
+                            is_satisfied = True
+                        elif dist >= self.enclosed_region and np.count_nonzero(distance_constraint == True) == 1:
+                            is_satisfied = True
+                    else:
                         is_satisfied = True
 
                 if self.conflict_matrix[('f', 'r')][current_index_pair] == -1:

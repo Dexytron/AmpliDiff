@@ -388,8 +388,4 @@ Amplicon (1591, 1791) rejected due to being unable to find primers to cover enou
 Checking amplicon: (1592, 1792)
 Amplicon (1592, 1792) rejected due to being unable to find primers to cover enough sequences
 Checking amplicon: (1593, 1793)
-Amplicon (1593, 1793) rejected due to being unable to find primers to cover enough sequences
-Checking amplicon: (1594, 1794)
-Amplicon (1594, 1794) rejected due to being unable to find primers to cover enough sequences
-Checking amplicon: (1595, 1795)
-Amplicon (1595, 1795) succesfully added, new sequence pairs covered: 2(fraction differences covered: 1.0), (fraction sequences covered: 0.9999999999999996)
+Amplicon (1593, 1793) succesfully added, new sequence pairs covered: 2(fraction differences covered: 1.0), (fraction sequences covered: 0.9999999999999996)
