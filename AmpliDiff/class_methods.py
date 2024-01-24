@@ -475,24 +475,19 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
         model.addConstr(reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict(
             [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]]))
 
-    primer_loc = []
-    for fwd in forward_primers:
-        for rev in reverse_primers:
-            model.addConstr(forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict(
-                [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]]))
-            # TODO
-            # For the primers add a constraint such that the distance between two possible primer pairs is 1k
-            fwd_primer_indices = primer_index.index2primer['forward'][fwd].indices
-            rev_primer_indices = primer_index.index2primer['reverse'][rev].indices
-            temp = [[(i, j) for j in rev_primer_indices.values()] for i in fwd_primer_indices.values()]
-            primer_loc.append(temp)
-            temp = temp
-
-    for seq in primer_loc:
-        for fwd in seq:
-            for primer_pair in fwd:
-                temp = primer_pair
-
+    # TODO Check this (too many constraints)
+    if primer_index.inexact:
+        for seq_id in range(len(sequences)):
+            for fwd in forward_primers:
+                for rev in reverse_primers:
+                    model.addConstr(forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict(
+                        [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]],
+                        seq_id=seq_id))
+    else:
+        for fwd in forward_primers:
+            for rev in reverse_primers:
+                model.addConstr(forward_primers[fwd][0] + reverse_primers[rev][0] <= primer_index.check_conflict(
+                    [primer_index.index2primer['forward'][fwd], primer_index.index2primer['reverse'][rev]]))
 
     # Set variable for number of primer pairs
     model.addConstr(num_primer_pairs >= sum(forward_primers[primer][0] for primer in forward_primers))
