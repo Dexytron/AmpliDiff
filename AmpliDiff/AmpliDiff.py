@@ -202,7 +202,7 @@ def main():
     primer_index.remove_redundant()
 
     if args.inexact_matching[0] > 0:
-        primer_index.window_size = args.search_width
+        primer_index.seq_num = len(sequences)
         primer_index.enclosed_region = args.inexact_matching[1]
         primer_index.primer_similarity()  # Finds all the similar primers
 
