@@ -79,9 +79,12 @@ def init_parser():
                         help='Number of processing cores to use, default is 1 (no multiprocessing)')
     parser.add_argument('-sd', '--seed', type=int, default=0,
                         help='Seed that is used to determine selection of sequences if more than allowed, default is 0')
-    parser.add_argument('--inexact_matching', type=int, default=0,
+    # Inexact matching parameters
+    parser.add_argument('--inexact_matching', nargs=2, type=int, default=[0, 1000],
                         help='Enables AmpliDiff to allow for inexact matching between primers and amplicons. '
-                             'The input number represents the number of allowed mismatches per primer.')
+                             'The first input represents the number of allowed mismatches per primer.'
+                             'The second input represents the minimal number of base pairs that should be enclosed by '
+                             'similar primers in order for the region to be considered feasible.')
     parser.add_argument('--dist_metric', type=str, default='hd',
                         help='When using inexact matching, two distance metrics can be considered, the Hamming Distance'
                              ' and the Levenshtein Distance. If the passed parameter is by default the Hamming Distance'
@@ -194,11 +197,12 @@ def main():
     primer_index = PrimerIndex.PrimerIndex.generate_index_mp(sequences, args.primer_width, comparison_matrix,
                                                              max_degeneracy=args.max_primer_degeneracy,
                                                              processors=args.cores,
-                                                             mismatches=args.inexact_matching,
+                                                             mismatches=args.inexact_matching[0],
                                                              distance=args.dist_metric)
     primer_index.remove_redundant()
 
-    if args.inexact_matching > 0:
+    if args.inexact_matching[0] > 0:
+        primer_index.enclosed_region = args.inexact_matching[1]
         primer_index.primer_similarity()  # Finds all the similar primers
 
     with open(args.output + '/runtimes_' + str(args.seed) + '.txt', 'a') as f:

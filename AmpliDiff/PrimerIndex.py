@@ -39,6 +39,7 @@ class PrimerIndex:
         # as the similarity score between their respective reverse primers.
         self.similar_primers = {'forward': defaultdict(set),
                                 'reverse': defaultdict(set)}  # Contains clusters of similar primers
+        self.enclosed_region = 1000
 
     # This does not work as intended currently
     def __eq__(self, other):
@@ -398,13 +399,15 @@ class PrimerIndex:
                             for rev in similar_rev:
                                 rev_pr = self.index2primer['reverse'][self.primer2index['reverse'][rev]]
                                 if seq_id in rev_pr.indices.keys():
-                                    distance_constraint = np.append(
-                                        distance_constraint, abs(fwd_pr.indices[seq_id] - rev_pr.indices[seq_id]) > 1000)
+                                    if fwd_pr.indices[seq_id] < rev_pr.indices[seq_id]:
+                                        distance_constraint = np.append(
+                                            distance_constraint,
+                                            rev_pr.indices[seq_id] - fwd_pr.indices[seq_id] > self.enclosed_region)
 
                     is_satisfied = False
-                    if dist < 1000 and np.all(~distance_constraint):
+                    if dist < self.enclosed_region and np.all(~distance_constraint):
                         is_satisfied = True
-                    elif dist >= 1000 and np.count_nonzero(distance_constraint == True) == 1:
+                    elif dist >= self.enclosed_region and np.count_nonzero(distance_constraint == True) == 1:
                         is_satisfied = True
 
                 if self.conflict_matrix[('f', 'r')][current_index_pair] == -1:
@@ -445,13 +448,15 @@ class PrimerIndex:
                             for rev in similar_rev:
                                 rev_pr = self.index2primer['reverse'][self.primer2index['reverse'][rev]]
                                 if seq_id in rev_pr.indices.keys():
-                                    distance_constraint = np.append(
-                                        distance_constraint, abs(fwd_pr.indices[seq_id] - rev_pr.indices[seq_id]) > 1000)
+                                    if fwd_pr.indices[seq_id] < rev_pr.indices[seq_id]:
+                                        distance_constraint = np.append(
+                                            distance_constraint,
+                                            rev_pr.indices[seq_id] - fwd_pr.indices[seq_id] > self.enclosed_region)
 
                     is_satisfied = False
-                    if dist < 1000 and np.all(~distance_constraint):
+                    if dist < self.enclosed_region and np.all(~distance_constraint):
                         is_satisfied = True
-                    elif dist >= 1000 and np.count_nonzero(distance_constraint == True) == 1:
+                    elif dist >= self.enclosed_region and np.count_nonzero(distance_constraint == True) == 1:
                         is_satisfied = True
 
                 if self.conflict_matrix[('f', 'r')][current_index_pair] == -1:
