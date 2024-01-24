@@ -387,6 +387,8 @@ class PrimerIndex:
                     rev_primer = self.index2primer['reverse'][self.primer2index['reverse'][pair[1].sequence]]
                     dist = float('inf')
 
+                    # TODO Check if in the case where either the forward or the reverse primer are not present,
+                    #  the constraint should be satisfied by default
                     # If there is an exact match of the two primers in the sequence, compute the enclosed region
                     if seq_id in fwd_primer.indices.keys() and seq_id in rev_primer.indices.keys():
                         dist = abs(fwd_primer.indices[seq_id] - rev_primer.indices[seq_id])
