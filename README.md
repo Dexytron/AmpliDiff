@@ -42,6 +42,8 @@ AmpliDiff then has the following list of optional parameters:
 --duorun_threshold     : Maximum allowed length of a double nucleotide run. Default is 3.
 --mfe_threshold        : Minimum required MFE for determining hairpin formation risk. Default is -5.
 --self_complementarity_threshold : Maximum primer-primer complementarity in worst alignment between primers. Default is 10.
+--inexact_matching     : Number of inexact matches allowed between the primer and the target sequence, and the width of region enclosed by forward and reverse primers. Default is (0, 1000).
+--dist_metric          : Distance metric used to compute the similarity between the primers. Default is "hd" (Hamming Distance).
 ##Greedy algorithm parameters
 -amps                  : Number of amplicons to find. Default is 10.
 ##Sequence parameters
