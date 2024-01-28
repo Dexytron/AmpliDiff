@@ -250,8 +250,6 @@ class PrimerIndex:
 
             # Check which primers (both forward and reverse) are found for the corresponding sequences
             # this iterates over the possible primers within the search range
-            # TODO Get the index where the primer would bind to in the amplicons sequence? Figure out what `start` and
-            #  `end` represents in the Amplicon class
             for offset in range(search_width - primer_width + 1):
                 # Iterate over forward primers for this sequence
                 current_fwd_primer = \
@@ -274,11 +272,17 @@ class PrimerIndex:
                     for reverse_primer in disambiguate(current_rev_primer):
                         if reverse_primer in self.primer2index['reverse']:
                             if self.index2primer['reverse'][self.primer2index['reverse'][reverse_primer]].feasible:
-                                amplicon.primers['reverse'][sequence.id_num].add(
-                                    self.primer2index['reverse'][reverse_primer])
+                                amplicon.primers['reverse'][sequence.id_num]\
+                                    .add(self.primer2index['reverse'][reverse_primer])
                                 amplicon.full_primerset['reverse'].add(self.primer2index['reverse'][reverse_primer])
                             if self.inexact:  # If inexact matching is enabled, we also add all the similar primers
                                 self.add_similar_primers(amplicon, sequence, 'reverse', reverse_primer)
+            # TODO clean up
+            # If a primer can appear in the sequence on two or more locations, once as an exact and once as an inexact
+            # match, then remove it from the similar set
+        # for orientation in amplicon.primers:
+        #     for primer in amplicon.primers[orientation]:
+        #         primer.check_similar(amplicon)
 
     # def update_similarity_conflict(self, primers):
     #     '''
@@ -383,6 +387,8 @@ class PrimerIndex:
                     fwd_primer = self.index2primer['forward'][self.primer2index['forward'][pair[0].sequence]]
                     rev_primer = self.index2primer['reverse'][self.primer2index['reverse'][pair[1].sequence]]
 
+                    # TODO Check if in the case where either the forward or the reverse primer are not present,
+                    #  the constraint should be satisfied by default
                     # If there is an exact match of the two primers in the sequence, compute the enclosed region
                     if seq_id in fwd_primer.indices.keys() and seq_id in rev_primer.indices.keys():
                         dist = abs(fwd_primer.indices[seq_id] - rev_primer.indices[seq_id])
@@ -629,9 +635,6 @@ class PrimerIndex:
                 # The similarity score between two forward primers will be the same as the similarity between
                 # their complements
 
-                # TODO the similarity should not be stored in the Primer instance, since the Primer instance can be
-                #  removed when the `remove_redundant()` function is called, instead it can be stored in the PrimerIndex
-
                 # If they are similar then add the primers to each other's respective similarity set
                 if similarity <= self.mismatches:
                     # Forward Primers
@@ -670,9 +673,17 @@ class PrimerIndex:
         Returns
         -------
         '''
-        # TODO
         for similar_primer in self.similar_primers[orientation][original_primer]:
             if similar_primer in self.primer2index[orientation]:
                 if self.index2primer[orientation][self.primer2index[orientation][similar_primer]].feasible:
-                    amplicon.primers[orientation][sequence.id_num].add(self.primer2index[orientation][similar_primer])
-                    amplicon.full_primerset[orientation].add(self.primer2index[orientation][similar_primer])
+                    # With this we can check the locations where similar primers can bind (same as original primers loc)
+                    # Gets the primer object
+                    primer = self.index2primer[orientation][self.primer2index[orientation][original_primer]]
+                    similar_primer_obj = self.index2primer[orientation][self.primer2index[orientation][similar_primer]]
+                    # If the primers are in the same sequence, and their distance is greater than 1000bp, add to
+                    # similar set
+                    # TODO
+                    if abs(primer.indices[sequence.id_num] - similar_primer_obj[sequence.id_num]) >= 1000:
+                        # Add to the set of primers for this amplicon
+                        amplicon.primers[orientation][sequence.id_num].add(self.primer2index[orientation][similar_primer])
+                        amplicon.full_primerset[orientation].add(self.primer2index[orientation][similar_primer])

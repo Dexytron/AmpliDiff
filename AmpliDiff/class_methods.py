@@ -475,7 +475,7 @@ def check_primer_feasibility_single_amplicon_full_coverage(sequences, amplicon, 
         model.addConstr(reverse_primers[pair[0]][0] + reverse_primers[pair[1]][0] <= primer_index.check_conflict(
             [primer_index.index2primer['reverse'][pair[0]], primer_index.index2primer['reverse'][pair[1]]]))
 
-    # TODO Check this (too many constraints)
+    # TODO Check this (too many constraints???)
     if primer_index.inexact:
         for seq_id in range(len(sequences)):
             for fwd in forward_primers:
