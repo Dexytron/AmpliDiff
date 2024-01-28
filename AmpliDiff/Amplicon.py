@@ -14,8 +14,6 @@ class Amplicon:
         self.primers = {'forward': {}, 'reverse': {}}
         self.differences = set()
         self.differences_proper = set()
-        # Primer position index dictionary
-        self.primer_pos = {'forward': {}, 'reverse': {}}
 
     def __eq__(self, other):
         try:
@@ -86,10 +84,3 @@ class Amplicon:
             except:
                 continue
 
-    def index_primer_pos(self, sequences):
-
-        # for fwd_primer in self.primers['forward']:
-            # rev_complement = reverse_complement(fwd_primer)
-            # start_index = self.
-
-        pass
